@@ -89,13 +89,35 @@ class GradCAM:
         self.backward_hook.remove()
 
 
-def overlay_heatmap_on_image(image_bgr, heatmap, alpha=0.45):
-    """Resize heatmap to match image and blend with JET colormap."""
-    heatmap = cv2.resize(heatmap, (image_bgr.shape[1], image_bgr.shape[0]))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap_color = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(image_bgr, 1 - alpha, heatmap_color, alpha, 0)
-    return overlay
+def overlay_heatmap_on_image(image_bgr, heatmap, alpha=0.6):
+    """
+    Resize heatmap to match image, apply percentile clipping to remove background noise,
+    and blend using the heatmap intensity as the alpha mask so the background is unaffected.
+    """
+    heatmap_resized = cv2.resize(heatmap, (image_bgr.shape[1], image_bgr.shape[0]), interpolation=cv2.INTER_CUBIC)
+    
+    # Mild Gaussian smoothing
+    heatmap_resized = cv2.GaussianBlur(heatmap_resized, (0, 0), sigmaX=8)
+    
+    # Percentile clipping (ignore bottom 60% of activations to remove background noise)
+    p = np.percentile(heatmap_resized, 60)
+    heatmap_resized[heatmap_resized < p] = p
+    
+    # Re-normalise to [0, 1]
+    h_min, h_max = heatmap_resized.min(), heatmap_resized.max()
+    if h_max > h_min:
+        heatmap_resized = (heatmap_resized - h_min) / (h_max - h_min)
+    else:
+        heatmap_resized = np.zeros_like(heatmap_resized)
+        
+    heatmap_color = cv2.applyColorMap(np.uint8(255 * heatmap_resized), cv2.COLORMAP_JET)
+    
+    # Create per-pixel alpha mask based on heatmap intensity
+    alpha_mask = heatmap_resized[:, :, np.newaxis] * alpha
+    
+    # Blend: background preserved where alpha_mask is 0
+    overlay = image_bgr * (1 - alpha_mask) + heatmap_color * alpha_mask
+    return np.uint8(np.clip(overlay, 0, 255))
 
 
 def image_to_base64(img_bgr):

@@ -204,11 +204,8 @@ class PlantDiseasePredictor:
             cam = np.array(cam, dtype=np.float32)
             if cam.ndim == 3:
                 cam = cam.squeeze()
-            cam = cam - cam.min()
-            if cam.max() > 0:
-                cam = cam / cam.max()
 
-            overlay     = overlay_heatmap_on_image(img_bgr_224, cam, alpha=0.45)
+            overlay     = overlay_heatmap_on_image(img_bgr_224, cam, alpha=0.6)
             cv2.imwrite(latest_path, overlay)
             gradcam_b64 = image_to_base64(overlay)
 

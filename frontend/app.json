@@ -22,7 +22,16 @@
       "**/*"
     ],
     "plugins": [
-      "expo-asset"
-    ]
+      "expo-asset",
+      "expo-image-picker",
+      "expo-location",
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a1e23c84-c168-45b7-a3f2-d09b06201037"
+      }
+    },
+    "owner": "awais676544"
   }
 }

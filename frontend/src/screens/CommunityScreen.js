@@ -1,110 +1,108 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
-  Alert,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, ActivityIndicator, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../utils/theme';
+import { useFocusEffect } from '@react-navigation/native';
+import { formatDistanceToNow } from 'date-fns';
+
+import { supabase } from '../services/supabase';
+import { colors, COLORS } from '../utils/theme';
 
 const tags = ['All', 'Tomato', 'Wheat', 'Rice', 'Corn', 'General'];
 
-const posts = [
-  {
-    id: '1',
-    name: 'Farmer Ali',
-    location: 'Sialkot',
-    crop: 'Tomato',
-    question: 'My tomato leaves have brown circular spots. Should I spray fungicide or remove leaves first?',
-    replies: 8,
-    time: '2h ago',
-  },
-  {
-    id: '2',
-    name: 'Ayesha Farms',
-    location: 'Gujranwala',
-    crop: 'Corn',
-    question: 'Corn leaves are showing rust-like dots after rain. What is the safest treatment?',
-    replies: 5,
-    time: '5h ago',
-  },
-  {
-    id: '3',
-    name: 'Green Valley',
-    location: 'Lahore',
-    crop: 'Rice',
-    question: 'What is the best time of day to spray pesticide in hot weather?',
-    replies: 12,
-    time: '1d ago',
-  },
-  {
-    id: '4',
-    name: 'Hassan Orchard',
-    location: 'Sargodha',
-    crop: 'General',
-    question: 'How often should I inspect leaves for early disease symptoms?',
-    replies: 3,
-    time: '2d ago',
-  },
-];
-
-export default function CommunityScreen() {
+export default function CommunityScreen({ navigation }) {
   const [activeTag, setActiveTag] = useState('All');
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredPosts = useMemo(() => {
-    if (activeTag === 'All') return posts;
-    return posts.filter((post) => post.crop === activeTag);
-  }, [activeTag]);
+  const fetchPosts = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('community_posts')
+        .select(`
+          *,
+          author:users!community_posts_author_id_fkey(full_name, location, avatar_url),
+          comments:post_comments(id),
+          likes:post_likes(user_id)
+        `)
+        .order('created_at', { ascending: false });
 
-  const askQuestion = () => {
-    Alert.alert(
-      'Ask a Question',
-      'This is a static FYP demo screen. Later you can connect this with Firebase or your backend.'
-    );
+      if (activeTag !== 'All') {
+        query = query.eq('category', activeTag);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setPosts(data || []);
+    } catch (err) {
+      console.log('Error fetching posts:', err);
+      Alert.alert('Error fetching posts', err.message || JSON.stringify(err));
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPosts();
+    }, [activeTag])
+  );
 
   const openPost = (post) => {
-    Alert.alert(
-      post.crop,
-      `${post.question}\n\nReplies: ${post.replies}\nLocation: ${post.location}`
-    );
+    navigation.navigate('PostDetail', { post });
   };
 
-  const renderPost = ({ item }) => (
-    <TouchableOpacity style={styles.postCard} onPress={() => openPost(item)}>
-      <View style={styles.postHeader}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={24} color="#fff" />
+  const renderPost = ({ item }) => {
+    const author = item.author || {};
+    const replyCount = item.comments ? item.comments.length : 0;
+    const likeCount = item.likes ? item.likes.length : 0;
+    
+    return (
+      <TouchableOpacity style={styles.postCard} onPress={() => openPost(item)}>
+        <View style={styles.postHeader}>
+          {author.avatar_url ? (
+            <Image source={{ uri: author.avatar_url }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Ionicons name="person" size={24} color="#fff" />
+            </View>
+          )}
+
+          <View style={{ flex: 1 }}>
+            <Text style={styles.name}>{author.full_name || 'Anonymous Farmer'}</Text>
+            <Text style={styles.location}>
+              {author.location || 'Unknown location'} • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+            </Text>
+          </View>
+
+          <View style={styles.cropBadge}>
+            <Text style={styles.cropBadgeText}>{item.category}</Text>
+          </View>
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.name}>{item.name}</Text>
-          <Text style={styles.location}>{item.location} • {item.time}</Text>
-        </View>
+        {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
+        <Text style={styles.question} numberOfLines={3}>{item.content}</Text>
+        
+        {item.image_url && (
+           <Image source={{ uri: item.image_url }} style={styles.postImage} />
+        )}
 
-        <View style={styles.cropBadge}>
-          <Text style={styles.cropBadgeText}>{item.crop}</Text>
-        </View>
-      </View>
+        <View style={styles.postFooter}>
+          <View style={styles.footerItem}>
+            <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
+            <Text style={styles.footerText}>{replyCount} replies</Text>
+          </View>
 
-      <Text style={styles.question}>{item.question}</Text>
-
-      <View style={styles.postFooter}>
-        <View style={styles.footerItem}>
-          <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
-          <Text style={styles.footerText}>{item.replies} replies</Text>
+          <View style={styles.footerItem}>
+            <Ionicons name="heart-outline" size={18} color={colors.primary} />
+            <Text style={styles.footerText}>{likeCount} likes</Text>
+          </View>
         </View>
-
-        <View style={styles.footerItem}>
-          <Ionicons name="leaf-outline" size={18} color={colors.primary} />
-          <Text style={styles.footerText}>Crop help</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -140,22 +138,26 @@ export default function CommunityScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={filteredPosts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        contentContainerStyle={styles.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <Ionicons name="chatbubbles-outline" size={60} color={colors.primary} />
-            <Text style={styles.emptyTitle}>No posts found</Text>
-            <Text style={styles.emptyText}>Try another crop filter.</Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          contentContainerStyle={styles.list}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyBox}>
+              <Ionicons name="chatbubbles-outline" size={60} color={colors.primary} />
+              <Text style={styles.emptyTitle}>No posts yet</Text>
+              <Text style={styles.emptyText}>Be the first to ask a question!</Text>
+            </View>
+          }
+        />
+      )}
 
-      <TouchableOpacity style={styles.fab} onPress={askQuestion}>
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabText}>Ask</Text>
       </TouchableOpacity>
@@ -191,6 +193,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   heroIcon: {
     width: 64,
@@ -226,6 +232,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
     marginBottom: 8,
     elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   activeTag: {
     backgroundColor: colors.primary,
@@ -247,6 +257,10 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   postHeader: {
     flexDirection: 'row',
@@ -255,7 +269,13 @@ const styles = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 18,
+    borderRadius: 24,
+    marginRight: 12,
+  },
+  avatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -282,18 +302,32 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 12,
     fontWeight: '900',
+    textTransform: 'capitalize',
+  },
+  postTitle: {
+    marginTop: 14,
+    color: '#102A12',
+    fontSize: 17,
+    fontWeight: '800',
   },
   question: {
-    marginTop: 14,
+    marginTop: 6,
     color: '#2C3F2C',
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 12,
+    resizeMode: 'cover',
   },
   postFooter: {
     marginTop: 14,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     borderTopWidth: 1,
     borderTopColor: '#EDF4ED',
     paddingTop: 12,
@@ -301,6 +335,7 @@ const styles = StyleSheet.create({
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 24,
   },
   footerText: {
     color: '#6A856A',
@@ -333,6 +368,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
   fabText: {
     color: '#FFFFFF',

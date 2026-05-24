@@ -9,79 +9,83 @@ import {
   TouchableOpacity,
   View,
   StyleSheet,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 
-import { useApp } from '../context/AppContext';
-import { getHistory } from '../services/storageService';
-import { STORAGE_KEYS } from '../utils/constants';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
 import { colors } from '../utils/theme';
 
-const DEFAULT_PROFILE = {
-  name: 'Farmer User',
-  location: 'Pakistan',
-  language: 'English',
-  notifications: true,
-  darkMode: false,
-};
-
 export default function ProfileScreen() {
-  const { profile, setProfile } = useApp();
+  const { session, signOut } = useAuth();
+  const userId = session?.user?.id;
+
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState({
+    full_name: 'Farmer User',
+    location: 'Unknown',
+    avatar_url: null,
+  });
 
   const [totalScans, setTotalScans] = useState(0);
-  const [cropCount, setCropCount] = useState(0);
   const [editVisible, setEditVisible] = useState(false);
 
-  const [draftName, setDraftName] = useState(profile?.name || DEFAULT_PROFILE.name);
-  const [draftLocation, setDraftLocation] = useState(profile?.location || DEFAULT_PROFILE.location);
-  const [draftLanguage, setDraftLanguage] = useState(profile?.language || DEFAULT_PROFILE.language);
+  const [draftName, setDraftName] = useState('');
+  const [draftLocation, setDraftLocation] = useState('');
 
-  const saveProfileToStorage = async (updatedProfile) => {
-    await AsyncStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(updatedProfile));
-  };
-
-  const loadProfileFromStorage = async () => {
-    const saved = await AsyncStorage.getItem(STORAGE_KEYS.PROFILE);
-
-    if (saved) {
-      setProfile(JSON.parse(saved));
-    } else {
-      setProfile((prev) => ({ ...DEFAULT_PROFILE, ...prev }));
+  const fetchProfile = async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        setProfile({
+          full_name: data.full_name || '',
+          location: data.location || '',
+          avatar_url: data.avatar_url,
+        });
+      }
+    } catch (error) {
+      console.log('Error fetching profile', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const loadStats = async () => {
-    const history = await getHistory();
-    setTotalScans(history.length);
-
-    const uniqueCrops = new Set(history.map((item) => item.crop || 'Unknown'));
-    setCropCount(uniqueCrops.size);
+  const fetchStats = async () => {
+    if (!userId) return;
+    try {
+      const { count } = await supabase
+        .from('scans')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      
+      setTotalScans(count || 0);
+    } catch (error) {
+      console.log('Error fetching stats', error);
+    }
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadProfileFromStorage();
-      loadStats();
-    }, [])
+      fetchProfile();
+      fetchStats();
+    }, [userId])
   );
 
-  const toggle = async (key, value) => {
-    const updated = {
-      ...DEFAULT_PROFILE,
-      ...profile,
-      [key]: value,
-    };
-
-    setProfile(updated);
-    await saveProfileToStorage(updated);
-  };
-
   const openEditModal = () => {
-    setDraftName(profile?.name || DEFAULT_PROFILE.name);
-    setDraftLocation(profile?.location || DEFAULT_PROFILE.location);
-    setDraftLanguage(profile?.language || DEFAULT_PROFILE.language);
+    setDraftName(profile.full_name);
+    setDraftLocation(profile.location);
     setEditVisible(true);
   };
 
@@ -91,79 +95,107 @@ export default function ProfileScreen() {
       return;
     }
 
-    const updated = {
-      ...DEFAULT_PROFILE,
-      ...profile,
-      name: draftName.trim(),
-      location: draftLocation.trim() || 'Pakistan',
-      language: draftLanguage.trim() || 'English',
-    };
+    try {
+      setLoading(true);
+      const updates = {
+        full_name: draftName.trim(),
+        location: draftLocation.trim(),
+      };
 
-    setProfile(updated);
-    await saveProfileToStorage(updated);
-    setEditVisible(false);
-    Alert.alert('Saved', 'Profile updated successfully.');
+      const { error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      setProfile(prev => ({ ...prev, ...updates }));
+      setEditVisible(false);
+      Alert.alert('Saved', 'Profile updated successfully.');
+    } catch (error) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const changeLanguage = () => {
-    Alert.alert(
-      'Choose Language',
-      'Select app language',
-      [
-        {
-          text: 'English',
-          onPress: async () => toggle('language', 'English'),
-        },
-        {
-          text: 'Urdu',
-          onPress: async () => toggle('language', 'Urdu'),
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    Alert.alert('Log Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Sign Out', style: 'destructive', onPress: async () => await signOut() }
+    ]);
   };
 
-  const resetAppData = () => {
-    Alert.alert(
-      'Reset App Data',
-      'This will remove history and saved profile settings.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.multiRemove([
-              STORAGE_KEYS.HISTORY,
-              STORAGE_KEYS.PROFILE,
-            ]);
+  const handleImagePick = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+      base64: true,
+    });
 
-            setProfile(DEFAULT_PROFILE);
-            setTotalScans(0);
-            setCropCount(0);
-
-            Alert.alert('Done', 'App data cleared successfully.');
-          },
-        },
-      ]
-    );
+    if (!result.canceled && result.assets[0]) {
+      uploadAvatar(result.assets[0]);
+    }
   };
 
-  const menuItem = (icon, title, subtitle, onPress) => (
+  const uploadAvatar = async (asset) => {
+    try {
+      setLoading(true);
+      const ext = asset.uri.substring(asset.uri.lastIndexOf(".") + 1);
+      const fileName = `${userId}_${Date.now()}.${ext}`;
+      
+      const formData = new FormData();
+      formData.append('file', {
+        uri: asset.uri,
+        name: fileName,
+        type: `image/${ext}`
+      });
+
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, formData, {
+          upsert: true,
+        });
+
+      if (error) throw error;
+
+      const { data: publicData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      const avatarUrl = publicData.publicUrl;
+
+      // Update users table
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+      
+      setProfile(prev => ({ ...prev, avatar_url: avatarUrl }));
+      Alert.alert('Success', 'Profile picture updated!');
+    } catch (error) {
+      Alert.alert('Upload Failed', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const menuItem = (icon, title, subtitle, onPress, destructive = false) => (
     <TouchableOpacity style={styles.menuCard} onPress={onPress}>
-      <View style={styles.menuIcon}>
-        <Ionicons name={icon} size={22} color={colors.primary} />
+      <View style={[styles.menuIcon, destructive && { backgroundColor: '#FFEBEE' }]}>
+        <Ionicons name={icon} size={22} color={destructive ? '#E53935' : colors.primary} />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={styles.menuTitle}>{title}</Text>
+        <Text style={[styles.menuTitle, destructive && { color: '#E53935' }]}>{title}</Text>
         <Text style={styles.menuSubtitle}>{subtitle}</Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color="#9AB29A" />
+      <Ionicons name="chevron-forward" size={20} color={destructive ? "#E53935" : "#9AB29A"} />
     </TouchableOpacity>
   );
 
@@ -172,12 +204,23 @@ export default function ProfileScreen() {
       <Text style={styles.header}>Profile</Text>
 
       <View style={styles.profileCard}>
-        <View style={styles.avatar}>
-          <Ionicons name="person" size={42} color="#fff" />
-        </View>
+        <TouchableOpacity style={styles.avatar} onPress={handleImagePick}>
+          {profile.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <Ionicons name="camera" size={32} color="#fff" />
+          )}
+        </TouchableOpacity>
 
-        <Text style={styles.name}>{profile?.name || DEFAULT_PROFILE.name}</Text>
-        <Text style={styles.location}>{profile?.location || DEFAULT_PROFILE.location}</Text>
+        {loading ? (
+           <ActivityIndicator color={colors.primary} style={{ marginTop: 14 }} />
+        ) : (
+          <>
+            <Text style={styles.name}>{profile.full_name || session?.user?.email}</Text>
+            <Text style={styles.location}>{profile.location || 'Location not set'}</Text>
+            <Text style={styles.email}>{session?.user?.email}</Text>
+          </>
+        )}
 
         <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
           <Ionicons name="create-outline" size={16} color={colors.primary} />
@@ -188,80 +231,24 @@ export default function ProfileScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{totalScans}</Text>
-          <Text style={styles.statLabel}>Total Scans</Text>
+          <Text style={styles.statLabel}>Cloud Scans</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{cropCount}</Text>
-          <Text style={styles.statLabel}>Crops</Text>
-        </View>
-
-        <View style={styles.statCard}>
-          <Text style={styles.statNumber}>{profile?.language || 'English'}</Text>
-          <Text style={styles.statLabel}>Language</Text>
+          <Text style={styles.statNumber}>Online</Text>
+          <Text style={styles.statLabel}>Status</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Preferences</Text>
-
-      <View style={styles.prefCard}>
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>Notifications</Text>
-          <Switch
-            value={profile?.notifications ?? true}
-            onValueChange={(value) => toggle('notifications', value)}
-          />
-        </View>
-        <View style={styles.divider} />
-
-        <TouchableOpacity style={styles.switchRow} onPress={changeLanguage}>
-          <Text style={styles.switchLabel}>Language</Text>
-          <Text style={styles.languageText}>{profile?.language || 'English'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.sectionTitle}>More</Text>
+      <Text style={styles.sectionTitle}>Account</Text>
 
       {menuItem(
-        'information-circle-outline',
-        'About LeafDoc',
-        'AI-powered plant disease detection app',
-        () => Alert.alert(
-          'About LeafDoc',
-          'LeafDoc is a Final Year Project app for Plant Leaf Disease Detection using Deep Learning and Explainable AI.'
-        )
+        'log-out-outline',
+        'Sign Out',
+        'Log out of your account',
+        handleLogout,
+        true
       )}
-
-      {menuItem(
-        'star-outline',
-        'Rate App',
-        'Give feedback about LeafDoc',
-        () => Alert.alert('Thank you!', 'This feature can be connected to Play Store later.')
-      )}
-
-      {menuItem(
-        'shield-checkmark-outline',
-        'Privacy Policy',
-        'Your history is stored locally on your phone',
-        () => Alert.alert(
-          'Privacy Policy',
-          'LeafDoc stores scan history locally using phone storage. No cloud database is used in this FYP demo.'
-        )
-      )}
-
-      {menuItem(
-        'trash-outline',
-        'Reset App Data',
-        'Delete history and saved profile',
-        resetAppData
-      )}
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>LeafDoc v1.0.0</Text>
-        <Text style={styles.footerSub}>
-          Plant Leaf Disease Detection using Deep Learning
-        </Text>
-      </View>
 
       <Modal visible={editVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -284,24 +271,17 @@ export default function ProfileScreen() {
               placeholder="Enter your location"
             />
 
-            <Text style={styles.inputLabel}>Language</Text>
-            <TextInput
-              value={draftLanguage}
-              onChangeText={setDraftLanguage}
-              style={styles.input}
-              placeholder="English or Urdu"
-            />
-
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelBtn}
                 onPress={() => setEditVisible(false)}
+                disabled={loading}
               >
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.saveBtn} onPress={saveEditedProfile}>
-                <Text style={styles.saveText}>Save</Text>
+              <TouchableOpacity style={styles.saveBtn} onPress={saveEditedProfile} disabled={loading}>
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -335,6 +315,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   name: {
     marginTop: 14,
@@ -346,6 +331,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: '#6A856A',
     fontSize: 15,
+  },
+  email: {
+    marginTop: 4,
+    color: '#7f8c8d',
+    fontSize: 13,
   },
   editBtn: {
     marginTop: 16,
@@ -392,32 +382,6 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#102A12',
   },
-  prefCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    elevation: 2,
-  },
-  switchRow: {
-    height: 58,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#102A12',
-  },
-  languageText: {
-    color: colors.primary,
-    fontWeight: '900',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#EDF4ED',
-  },
   menuCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 22,
@@ -445,20 +409,6 @@ const styles = StyleSheet.create({
     marginTop: 3,
     fontSize: 12,
     color: '#6A856A',
-  },
-  footer: {
-    marginTop: 28,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontWeight: '900',
-    color: '#102A12',
-  },
-  footerSub: {
-    marginTop: 6,
-    color: '#6A856A',
-    textAlign: 'center',
-    fontSize: 12,
   },
   modalOverlay: {
     flex: 1,

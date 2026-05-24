@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '../utils/constants';
+import { supabase } from './supabase';
 
-export const predictLeafDisease = async (imageUri) => {
+export const predictLeafDisease = async (imageUri, cropName = 'Unknown') => {
   const formData = new FormData();
 
   formData.append('file', {
@@ -8,11 +9,21 @@ export const predictLeafDisease = async (imageUri) => {
     name: 'leaf.jpg',
     type: 'image/jpeg',
   });
+  
+  formData.append('crop', cropName);
 
   console.log('Sending image to:', `${API_BASE_URL}/predict`);
 
+  // Get current user session
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers = {};
+  if (session?.access_token) {
+    headers['Authorization'] = `Bearer ${session.access_token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/predict`, {
     method: 'POST',
+    headers,
     body: formData,
   });
 

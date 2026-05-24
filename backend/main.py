@@ -4,7 +4,9 @@ import base64
 import json
 import time
 import urllib.request
-from typing import Dict, List
+from typing import Dict, List, Optional
+
+import httpx
 
 import cv2
 import numpy as np
@@ -16,6 +18,10 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from torchvision import transforms
 from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from supabase import create_client, Client
+import uuid
 
 from gradcam import GradCAM, HEALTHY_CLASSES, overlay_heatmap_on_image
 
@@ -376,13 +382,7 @@ def read_image_as_base64(path: str) -> str:
 def make_gradcam(image: "Image.Image", input_tensor: "torch.Tensor",
                  pred_idx: int, class_name: str) -> str:
     """
-    Generate a sharp, focused Grad-CAM overlay identical in visual quality
-    to the original EfficientNet results.
-
-    Pipeline:
-      1. healthy class  → plain resized image, no heatmap
-      2. diseased class → GradCAM with percentile clipping + Gaussian
-         smoothing → JET colormap → 55/45 blend (matching original)
+    Generate a sharp, focused Grad-CAM overlay.
     """
     # ── Common: base image at 224×224 ─────────────────────────────────────
     image_resized = image.resize((224, 224))
@@ -400,7 +400,6 @@ def make_gradcam(image: "Image.Image", input_tensor: "torch.Tensor",
     target_layer = model.backbone.stages[-1]
 
     gradcam_obj = GradCAM(model, target_layer)
-    # generate() already applies ReLU + percentile clip + normalisation
     cam = gradcam_obj.generate(input_tensor, class_idx=pred_idx)
     gradcam_obj.remove_hooks()
 
@@ -408,21 +407,8 @@ def make_gradcam(image: "Image.Image", input_tensor: "torch.Tensor",
     if cam.ndim == 3:
         cam = cam.squeeze()
 
-    # ── Upsample 7×7 → 224×224 with smooth interpolation ─────────────────
-    cam_up = cv2.resize(cam, (224, 224), interpolation=cv2.INTER_LINEAR)
-
-    # ── Mild Gaussian smoothing: softens the coarse grid without
-    #    destroying the focused hotspot shape ──────────────────────────────
-    cam_up = cv2.GaussianBlur(cam_up, (0, 0), sigmaX=8)
-
-    # Re-normalise after blur
-    cam_up -= cam_up.min()
-    if cam_up.max() > 1e-8:
-        cam_up /= cam_up.max()
-
-    # ── JET colormap + blend ──────────────────────────────────────────────
-    heatmap = cv2.applyColorMap(np.uint8(cam_up * 255), cv2.COLORMAP_JET)
-    overlay = cv2.addWeighted(image_bgr, 0.55, heatmap, 0.45, 0)
+    # Delegate the upsampling, smoothing, clipping, and overlay to the updated function
+    overlay = overlay_heatmap_on_image(image_bgr, cam, alpha=0.6)
 
     cv2.imwrite(output_path, overlay)
     return output_path
@@ -452,6 +438,24 @@ def load_env_file():
                     os.environ[k.strip()] = v.strip().strip("'").strip('"')
 
 load_env_file()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("EXPO_PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") or os.getenv("EXPO_PUBLIC_SUPABASE_ANON_KEY")
+supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_KEY) if SUPABASE_URL and SUPABASE_KEY else None
+
+security = HTTPBearer(auto_error=False)
+
+def get_current_user_optional(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if not credentials or not supabase_client:
+        return None
+    token = credentials.credentials
+    try:
+        user_res = supabase_client.auth.get_user(token)
+        if user_res and user_res.user:
+            return {"user": user_res.user, "token": token}
+    except Exception:
+        pass
+    return None
 
 class ChatPayload(BaseModel):
     messages: List[Dict[str, str]]
@@ -582,26 +586,31 @@ def generate_summaries_from_api(crop: str, disease: str, confidence: float) -> d
         }
 
     system_prompt = (
-        "You are an expert plant pathologist. Generate three clean bullet sections in simple farmer-friendly words:\n"
-        "1. [DISEASE SUMMARY]\n"
-        "2. [TREATMENT SUMMARY]\n"
-        "3. [PREVENTION SUMMARY]\n"
-        "Use ===DISEASE===, ===TREATMENT===, and ===PREVENTION=== as delimiters."
+        "You are an expert plant pathologist. Generate three clean bullet sections in simple farmer-friendly words.\n"
+        "You MUST use exactly these exact headers (do not add bolding, markdown, or numbers):\n"
+        "===DISEASE===\n"
+        "===TREATMENT===\n"
+        "===PREVENTION==="
     )
-    user_prompt = f"Crop: ${crop}, Disease: ${disease}, Confidence: ${confidence:.1f}%"
+    user_prompt = f"Crop: {crop}, Disease: {disease}, Confidence: {confidence:.1f}%"
     
     try:
         raw_response = call_groq_api([{"role": "user", "content": user_prompt}], system_prompt)
         
         import re
-        disease_match = re.search(r"===DISEASE===([\s\S]*?)===TREATMENT===", raw_response)
-        treatment_match = re.search(r"===TREATMENT===([\s\S]*?)===PREVENTION===", raw_response)
-        prevention_match = re.search(r"===PREVENTION===([\s\S]*)", raw_response)
+        # Use more robust regex that ignores case and spaces around headers, and handles missing trailing sections
+        disease_match = re.search(r"===\s*DISEASE\s*===([\s\S]*?)(?:===\s*TREATMENT\s*===|$)", raw_response, re.IGNORECASE)
+        treatment_match = re.search(r"===\s*TREATMENT\s*===([\s\S]*?)(?:===\s*PREVENTION\s*===|$)", raw_response, re.IGNORECASE)
+        prevention_match = re.search(r"===\s*PREVENTION\s*===([\s\S]*)", raw_response, re.IGNORECASE)
         
-        disease_summary = disease_match.group(1).strip() if disease_match else "Could not load summary."
+        disease_summary = disease_match.group(1).strip() if disease_match else "Could not load summary. Raw output: " + raw_response[:50]
         treatment_summary = treatment_match.group(1).strip() if treatment_match else "Could not load treatment advice."
         prevention_summary = prevention_match.group(1).strip() if prevention_match else "Could not load prevention advice."
         
+        # Fallback if the LLM completely ignored the format but returned some text
+        if not disease_match and not treatment_match and len(raw_response) > 20:
+            disease_summary = raw_response
+            
         return {
             "diseaseSummary": disease_summary,
             "treatmentSummary": treatment_summary,
@@ -648,9 +657,40 @@ def chat_summaries(payload: SummaryPayload):
     except Exception as e:
         return {"error": str(e)}
 
+class NotifyPayload(BaseModel):
+    user_id: str
+    title: str
+    body: str
+
+@app.post("/notify")
+async def send_notification(payload: NotifyPayload, user_data = Depends(get_current_user_optional)):
+    if not supabase_client:
+        return {"error": "Supabase client not configured"}
+        
+    try:
+        # Get the push token of the target user
+        user_res = supabase_client.table("users").select("expo_push_token").eq("id", payload.user_id).execute()
+        if not user_res.data or not user_res.data[0].get("expo_push_token"):
+            return {"status": "skipped", "message": "User has no push token"}
+            
+        push_token = user_res.data[0]["expo_push_token"]
+        
+        # Send to Expo Push API
+        async with httpx.AsyncClient() as client:
+            expo_payload = {
+                "to": push_token,
+                "title": payload.title,
+                "body": payload.body,
+                "sound": "default"
+            }
+            res = await client.post("https://exp.host/--/api/v2/push/send", json=expo_payload)
+            return {"status": "sent", "expo_response": res.json()}
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
+async def predict(file: UploadFile = File(...), crop: str = Form("Unknown"), user_data = Depends(get_current_user_optional)):
     image_bytes = await file.read()
     image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
 
@@ -671,7 +711,7 @@ async def predict(file: UploadFile = File(...)):
     gradcam_path = make_gradcam(image, input_tensor, pred_idx, disease)
     gradcam_b64  = read_image_as_base64(gradcam_path)
 
-    return {
+    result = {
         "disease":      disease,
         "confidence":   round(confidence, 2),
         "severity":     "N/A" if is_healthy else get_severity(confidence),
@@ -687,3 +727,45 @@ async def predict(file: UploadFile = File(...)):
         "gradcam_image": gradcam_b64,
         "is_healthy":    is_healthy,
     }
+
+    # Save to cloud if authenticated
+    if user_data and supabase_client:
+        try:
+            user_id = user_data["user"].id
+            token = user_data["token"]
+            
+            auth_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+            auth_client.postgrest.auth(token)
+            
+            timestamp = int(time.time())
+            
+            orig_filename = f"{user_id}/{timestamp}_orig.jpg"
+            grad_filename = f"{user_id}/{timestamp}_grad.jpg"
+            
+            # Upload original
+            auth_client.storage.from_("scans").upload(orig_filename, image_bytes, {"content-type": "image/jpeg"})
+            orig_url = auth_client.storage.from_("scans").get_public_url(orig_filename)
+            
+            # Upload gradcam
+            with open(gradcam_path, "rb") as gf:
+                auth_client.storage.from_("scans").upload(grad_filename, gf.read(), {"content-type": "image/jpeg"})
+            grad_url = auth_client.storage.from_("scans").get_public_url(grad_filename)
+            
+            # Insert to DB
+            auth_client.table("scans").insert({
+                "user_id": user_id,
+                "crop_name": crop,
+                "disease_name": disease,
+                "confidence_score": round(confidence, 2),
+                "treatment_summary": " | ".join(info["treatment"]),
+                "is_healthy": is_healthy,
+                "image_url": orig_url,
+                "gradcam_url": grad_url
+            }).execute()
+            
+            result["cloud_saved"] = True
+        except Exception as e:
+            print("Failed to save to cloud:", str(e))
+            result["cloud_saved"] = False
+
+    return result

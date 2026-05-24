@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -15,7 +16,10 @@
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
+    "@supabase/supabase-js": "^2.106.1",
     "axios": "^1.15.2",
+    "base64-arraybuffer": "^1.0.2",
+    "date-fns": "^4.3.0",
     "expo": "~54.0.34",
     "expo-asset": "~12.0.13",
     "expo-constants": "~18.0.13",
@@ -33,7 +37,8 @@
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
-    "react-native-svg": "15.12.1"
+    "react-native-svg": "15.12.1",
+    "react-native-url-polyfill": "^3.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

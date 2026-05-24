@@ -15,6 +15,9 @@ import DiseaseGuideScreen from '../screens/DiseaseGuideScreen';
 import SprayScheduleScreen from '../screens/SprayScheduleScreen';
 import WeatherScreen from '../screens/WeatherScreen';
 
+import CreatePostScreen from '../screens/community/CreatePostScreen';
+import PostDetailScreen from '../screens/community/PostDetailScreen';
+
 import { getOnboardingSeen } from '../services/storageService';
 
 const Stack = createNativeStackNavigator();
@@ -69,6 +72,13 @@ const AppNavigator = () => {
       <Stack.Screen name="DiseaseGuide" component={DiseaseGuideScreen} />
       <Stack.Screen name="SpraySchedule" component={SprayScheduleScreen} />
       <Stack.Screen name="WeatherAdvisory" component={WeatherScreen} />
+      
+      <Stack.Screen 
+        name="CreatePost" 
+        component={CreatePostScreen} 
+        options={{ presentation: 'modal', animation: 'slide_from_bottom' }} 
+      />
+      <Stack.Screen name="PostDetail" component={PostDetailScreen} />
     </Stack.Navigator>
   );
 };

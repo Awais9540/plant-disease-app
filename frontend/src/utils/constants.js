@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://192.168.1.221:8000';
+export const API_BASE_URL = 'https://awaisj9878-leafdoc-backend.hf.space';
 
 export const APP_NAME = 'LeafDoc';
 

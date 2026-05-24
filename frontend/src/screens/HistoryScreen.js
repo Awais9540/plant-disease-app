@@ -1,277 +1,202 @@
-import React, { useCallback, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { format } from 'date-fns';
 
-import { getHistory } from '../services/storageService';
-import { STORAGE_KEYS } from '../utils/constants';
-import { colors } from '../utils/theme';
-import SeverityBadge from '../components/SeverityBadge';
-
-const formatDate = (dateString) => {
-  if (!dateString) return 'Unknown date';
-
-  const date = new Date(dateString);
-
-  return (
-    date.toLocaleDateString() +
-    ' • ' +
-    date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  );
-};
-
-const getConfidence = (value) => {
-  const number = Number(value);
-  if (Number.isNaN(number)) return 0;
-  return number <= 1 ? number * 100 : number;
-};
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../services/supabase';
+import { colors, COLORS } from '../utils/theme';
 
 export default function HistoryScreen({ navigation }) {
+  const { session } = useAuth();
+  const userId = session?.user?.id;
+  
   const [history, setHistory] = useState([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const loadHistory = async () => {
-    const data = await getHistory();
-    setHistory(data || []);
+  const fetchHistory = async () => {
+    if (!userId) return;
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('scans')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setHistory(data || []);
+    } catch (error) {
+      console.log('Error fetching history:', error);
+      Alert.alert('Error', 'Failed to load your scan history.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadHistory();
-    }, [])
+      fetchHistory();
+    }, [userId])
   );
 
-  const refresh = async () => {
-    setRefreshing(true);
-    await loadHistory();
-    setRefreshing(false);
-  };
-
-  const clearAllHistory = () => {
-    Alert.alert(
-      'Clear History',
-      'Are you sure you want to delete all saved scan results?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete All',
-          style: 'destructive',
-          onPress: async () => {
-            await AsyncStorage.removeItem(STORAGE_KEYS.HISTORY);
-            setHistory([]);
-          },
-        },
-      ]
-    );
-  };
-
-  const deleteSingleItem = (itemToDelete) => {
+  const deleteRecord = (id) => {
     Alert.alert(
       'Delete Scan',
-      'Do you want to delete this saved scan?',
+      'Are you sure you want to permanently delete this scan?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const updated = history.filter((item, index) => {
-              const itemKey = `${item.id || 'scan'}-${index}`;
-              const deleteKey = `${itemToDelete.id || 'scan'}-${itemToDelete.__index}`;
-              return itemKey !== deleteKey;
-            });
-
-            setHistory(updated);
-            await AsyncStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(updated));
+            try {
+              const { error } = await supabase
+                .from('scans')
+                .delete()
+                .eq('id', id);
+              if (error) throw error;
+              setHistory(prev => prev.filter(item => item.id !== id));
+            } catch (err) {
+              Alert.alert('Error', 'Failed to delete the scan.');
+            }
           },
         },
       ]
     );
   };
 
-  const openResult = (item) => {
-    navigation.navigate('Result', {
-      result: {
-        ...item,
-        gradcam_image: item.gradcam_image || item.gradcamImage,
-        gradcamImage: item.gradcamImage || item.gradcam_image,
-        learn_more: item.learn_more || item.learnMore,
-      },
-    });
-  };
-
-  const filteredHistory = history
-    .map((item, index) => ({ ...item, __index: index }))
-    .filter((item) => {
-      const query = searchQuery.trim().toLowerCase();
-
-      if (!query) return true;
-
-      return (
-        item.disease?.toLowerCase().includes(query) ||
-        item.crop?.toLowerCase().includes(query) ||
-        item.severity?.toLowerCase().includes(query)
-      );
-    });
-
-  const renderItem = ({ item }) => {
-    const confidence = getConfidence(item.confidence);
-
-    return (
-      <TouchableOpacity style={styles.card} onPress={() => openResult(item)}>
-        {item.imageUri ? (
-          <Image source={{ uri: item.imageUri }} style={styles.thumbnail} />
-        ) : (
-          <View style={styles.thumbnailPlaceholder}>
-            <Ionicons name="leaf-outline" size={32} color={colors.primary} />
-          </View>
-        )}
-
-        <View style={styles.info}>
-          <Text style={styles.disease} numberOfLines={1}>
-            {item.disease || 'Unknown Disease'}
-          </Text>
-
-          <Text style={styles.meta} numberOfLines={1}>
-            {item.crop || 'Unknown Crop'} • {formatDate(item.date)}
-          </Text>
-
-          <View style={styles.row}>
-            <View style={styles.confidenceBadge}>
-              <Ionicons name="analytics" size={15} color={colors.primary} />
-              <Text style={styles.confidenceText}>
-                {confidence.toFixed(1)}%
-              </Text>
-            </View>
-
-            <SeverityBadge severity={item.severity || 'Medium'} />
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.deleteBtn}
-          onPress={() => deleteSingleItem(item)}
-        >
-          <Ionicons name="trash-outline" size={20} color="#C62828" />
-        </TouchableOpacity>
-      </TouchableOpacity>
+  const clearAllHistory = () => {
+    Alert.alert(
+      'Clear All History',
+      'This will permanently delete ALL your saved scans from the cloud.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('scans')
+                .delete()
+                .eq('user_id', userId);
+              if (error) throw error;
+              setHistory([]);
+            } catch (err) {
+              Alert.alert('Error', 'Failed to clear history.');
+            }
+          },
+        },
+      ]
     );
   };
+
+  const viewDetails = (item) => {
+    // Reconstruct the result object expected by ResultScreen
+    const mappedResult = {
+      disease: item.disease_name,
+      confidence: item.confidence_score,
+      crop: item.crop_name,
+      severity: item.is_healthy ? 'N/A' : (item.confidence_score > 90 ? 'High' : 'Medium'),
+      date: item.created_at,
+      imageUri: item.image_url,
+      gradcam_image: item.gradcam_url,
+      treatment: item.treatment_summary,
+      is_healthy: item.is_healthy,
+      description: item.is_healthy ? 'Leaf appears healthy.' : `${item.disease_name} detected.`,
+      xaiInsight: item.is_healthy ? 'No disease regions to highlight.' : 'AI highlighted infected regions.'
+    };
+    navigation.navigate('Result', { result: mappedResult, isHistoryView: true });
+  };
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.historyCard}
+      onPress={() => viewDetails(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.imageContainer}>
+        {item.image_url ? (
+          <Image source={{ uri: item.image_url }} style={styles.cardImage} />
+        ) : (
+          <Ionicons name="image" size={32} color="#9AB29A" />
+        )}
+      </View>
+
+      <View style={styles.cardInfo}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cropText}>{item.crop_name.replace('_', ' ')}</Text>
+          <Text style={styles.dateText}>
+            {format(new Date(item.created_at), 'MMM dd, yyyy')}
+          </Text>
+        </View>
+
+        <Text style={styles.diseaseText} numberOfLines={1}>
+          {item.disease_name}
+        </Text>
+
+        <View style={styles.confidenceRow}>
+          <Ionicons
+            name={item.is_healthy ? 'checkmark-circle' : 'warning'}
+            size={16}
+            color={item.is_healthy ? '#2ecc71' : '#e74c3c'}
+          />
+          <Text style={styles.confidenceText}>
+            {item.confidence_score}% Match
+          </Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        style={styles.deleteButton}
+        onPress={() => deleteRecord(item.id)}
+      >
+        <Ionicons name="trash-outline" size={20} color="#e74c3c" />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Scan History</Text>
-          <Text style={styles.subtitle}>
-            {history.length} saved diagnosis result{history.length === 1 ? '' : 's'}
-          </Text>
-        </View>
-
+        <Text style={styles.title}>Cloud History</Text>
         {history.length > 0 && (
-          <TouchableOpacity style={styles.clearBtn} onPress={clearAllHistory}>
-            <Ionicons name="trash-outline" size={20} color="#C62828" />
+          <TouchableOpacity onPress={clearAllHistory} style={styles.clearBtn}>
+            <Text style={styles.clearText}>Clear All</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {history.length > 0 && (
-        <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={20} color="#6A856A" />
-          <TextInput
-            placeholder="Search disease, crop, or severity..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-            placeholderTextColor="#8BA18B"
-          />
-
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#8BA18B" />
-            </TouchableOpacity>
-          )}
+      {loading ? (
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading your scans...</Text>
         </View>
-      )}
-
-      {history.length > 0 && (
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{history.length}</Text>
-            <Text style={styles.statLabel}>Total Scans</Text>
+      ) : history.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <Ionicons name="time-outline" size={48} color={COLORS.primary} />
           </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
-              {new Set(history.map((item) => item.crop || 'Unknown')).size}
-            </Text>
-            <Text style={styles.statLabel}>Crops</Text>
-          </View>
-
-          <View style={styles.statDivider} />
-
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>
-              {filteredHistory.length}
-            </Text>
-            <Text style={styles.statLabel}>Showing</Text>
-          </View>
-        </View>
-      )}
-
-      {history.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <View style={styles.emptyIcon}>
-            <Ionicons name="leaf-outline" size={76} color={colors.primary} />
-          </View>
-
-          <Text style={styles.emptyTitle}>No scans yet</Text>
+          <Text style={styles.emptyTitle}>No Scans Yet</Text>
           <Text style={styles.emptyText}>
-            Scan your first crop leaf and save the result here.
+            Your future AI disease scans will be securely saved here in the cloud.
           </Text>
-
           <TouchableOpacity
-            style={styles.scanBtn}
-            onPress={() => navigation.navigate('MainTabs', { screen: 'Scan' })}
+            style={styles.scanNowBtn}
+            onPress={() => navigation.navigate('Scan')}
           >
-            <Ionicons name="camera" size={20} color="#fff" />
-            <Text style={styles.scanBtnText}>Scan Now</Text>
+            <Text style={styles.scanNowText}>Scan a Leaf</Text>
           </TouchableOpacity>
-        </View>
-      ) : filteredHistory.length === 0 ? (
-        <View style={styles.emptyBox}>
-          <Ionicons name="search-outline" size={70} color={colors.primary} />
-          <Text style={styles.emptyTitle}>No matching results</Text>
-          <Text style={styles.emptyText}>
-            Try searching with another disease, crop, or severity.
-          </Text>
         </View>
       ) : (
         <FlatList
-          data={filteredHistory}
-          keyExtractor={(item, index) => `${item.id || 'scan'}-${item.__index}-${index}`}
+          data={history}
+          keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={refresh} />
-          }
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
@@ -284,190 +209,148 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FBF6',
   },
   header: {
-    paddingHorizontal: 18,
-    paddingTop: 48,
-    paddingBottom: 14,
+    marginTop: 50,
+    paddingHorizontal: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    marginBottom: 10,
   },
   title: {
-    fontSize: 31,
+    fontSize: 32,
     fontWeight: '900',
     color: '#102A12',
-  },
-  subtitle: {
-    color: '#6A856A',
-    marginTop: 4,
-    fontSize: 14,
-    fontWeight: '600',
   },
   clearBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 16,
+    padding: 8,
     backgroundColor: '#FFEBEE',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 12,
   },
-  searchBox: {
-    marginHorizontal: 18,
-    marginBottom: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    paddingHorizontal: 14,
-    height: 52,
-    flexDirection: 'row',
-    alignItems: 'center',
-    elevation: 2,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    color: '#102A12',
+  clearText: {
+    color: '#e74c3c',
+    fontWeight: 'bold',
     fontSize: 14,
-    fontWeight: '600',
   },
-  statsCard: {
-    marginHorizontal: 18,
-    marginBottom: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 22,
-    paddingVertical: 16,
-    flexDirection: 'row',
-    elevation: 2,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statNumber: {
-    color: colors.primary,
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  statLabel: {
-    color: '#6A856A',
-    marginTop: 4,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: '#E0EDE0',
-  },
-  list: {
+  listContent: {
     padding: 18,
-    paddingBottom: 110,
+    paddingBottom: 100,
   },
-  card: {
+  historyCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 12,
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  thumbnail: {
-    width: 86,
-    height: 86,
-    borderRadius: 20,
-    backgroundColor: '#E8F5E9',
-  },
-  thumbnailPlaceholder: {
-    width: 86,
-    height: 86,
-    borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+  imageContainer: {
+    width: 65,
+    height: 65,
+    borderRadius: 14,
+    backgroundColor: '#F1F8E9',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
-  info: {
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cardInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 14,
   },
-  disease: {
-    fontSize: 17,
-    fontWeight: '900',
-    color: '#102A12',
-    textTransform: 'capitalize',
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
-  meta: {
-    marginTop: 5,
-    color: '#6A856A',
+  cropText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    color: '#6A856A',
+    textTransform: 'uppercase',
   },
-  row: {
+  dateText: {
+    fontSize: 12,
+    color: '#9AB29A',
+  },
+  diseaseText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#102A12',
+    marginBottom: 6,
+  },
+  confidenceRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 9,
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  confidenceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
   },
   confidenceText: {
-    color: colors.primary,
-    fontWeight: '900',
     marginLeft: 4,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#2c3e50',
   },
-  deleteBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    backgroundColor: '#FFEBEE',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
+  deleteButton: {
+    padding: 10,
+    marginLeft: 5,
   },
-  emptyBox: {
+  centerContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 35,
+    alignItems: 'center',
   },
-  emptyIcon: {
-    width: 125,
-    height: 125,
-    borderRadius: 40,
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6A856A',
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+  },
+  emptyIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
     backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 20,
   },
   emptyTitle: {
-    marginTop: 18,
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
     color: '#102A12',
+    marginBottom: 8,
   },
   emptyText: {
-    marginTop: 8,
     textAlign: 'center',
     color: '#6A856A',
     fontSize: 15,
     lineHeight: 22,
+    marginBottom: 30,
   },
-  scanBtn: {
-    marginTop: 24,
+  scanNowBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    borderRadius: 20,
+    elevation: 2,
   },
-  scanBtnText: {
-    color: '#FFFFFF',
+  scanNowText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '900',
-    marginLeft: 8,
   },
 });

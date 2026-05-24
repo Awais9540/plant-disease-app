@@ -21,13 +21,14 @@ const CROPS = [
   { name: 'Bell_Pepper', image: require('../assets/crops/bellpepper.png') },
   { name: 'Corn', image: require('../assets/crops/corn.png') },
   { name: 'Grape', image: require('../assets/crops/grape.png') },
-  { name: 'Potato', image: require('../assets/crops/blueberry.png') },
-  { name: 'Tomato', image: require('../assets/crops/cherry.png') },
+  { name: 'Potato', image: require('../assets/crops/potato.png') },
+  { name: 'Tomato', image: require('../assets/crops/tomato.png') },
+  { name: 'Cherry', image: require('../assets/crops/cherry.png') },
   { name: 'Peach', image: require('../assets/crops/peach.png') },
   { name: 'Soyabeans', image: require('../assets/crops/soyabeans.png') },
   { name: 'Squash', image: require('../assets/crops/squash.png') },
   { name: 'Strawberry', image: require('../assets/crops/strawberry.png') },
-  { name: 'Cherry', image: require('../assets/crops/cherry.png') },
+  
 ];
 
 const firstValue = (...values) => {
@@ -103,7 +104,7 @@ export default function ScanScreen({ navigation }) {
     try {
       setLoading(true);
 
-      const response = await predictLeafDisease(imageUri);
+      const response = await predictLeafDisease(imageUri, selectedCrop);
 
       const disease = firstValue(
         response?.disease,
