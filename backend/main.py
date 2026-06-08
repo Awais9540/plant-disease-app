@@ -42,9 +42,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# =========================================================
 # CLASS ORDER — must match training order exactly
-# =========================================================
 
 CLASS_NAMES = [
     "Grape leaf black rot",         # 0
@@ -78,9 +76,7 @@ CLASS_NAMES = [
     "tomato septoria leaf spot",    # 28
 ]
 
-# =========================================================
 # DISEASE INFO  (29 entries, keyed by lowercase class name)
-# =========================================================
 
 DISEASE_INFO: Dict[str, Dict[str, List[str]]] = {
 
@@ -288,9 +284,7 @@ DISEASE_INFO: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
-# =========================================================
 # MODEL — ConvNeXtTinyClassifier
-# =========================================================
 
 class ConvNeXtTinyClassifier(nn.Module):
     """
@@ -349,9 +343,7 @@ model.load_state_dict(state_dict, strict=True)
 model.to(DEVICE)
 model.eval()
 
-# =========================================================
 # IMAGE TRANSFORM  (224×224 — ConvNeXt canonical size)
-# =========================================================
 
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -362,9 +354,7 @@ transform = transforms.Compose([
     ),
 ])
 
-# =========================================================
 # HELPERS
-# =========================================================
 
 def get_severity(conf: float) -> str:
     if conf >= 90:
@@ -384,19 +374,19 @@ def make_gradcam(image: "Image.Image", input_tensor: "torch.Tensor",
     """
     Generate a sharp, focused Grad-CAM overlay.
     """
-    # ── Common: base image at 224×224 ─────────────────────────────────────
+    #  Common: base image at 224×224 
     image_resized = image.resize((224, 224))
     image_np  = np.array(image_resized).astype(np.uint8)
     image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
     output_path = os.path.join(OUTPUT_DIR, "latest_gradcam.jpg")
 
-    # ── Healthy leaf → no heatmap ─────────────────────────────────────────
+    #  Healthy leaf → no heatmap 
     if class_name.lower() in HEALTHY_CLASSES:
         cv2.imwrite(output_path, image_bgr)
         return output_path
 
-    # ── Grad-CAM: hook last ConvNeXt stage (768 ch, 7×7) ─────────────────
+    #  Grad-CAM: hook last ConvNeXt stage (768 ch, 7×7) 
     target_layer = model.backbone.stages[-1]
 
     gradcam_obj = GradCAM(model, target_layer)
@@ -422,9 +412,7 @@ def get_default_info(name: str) -> dict:
         "learn_more":  ["Early detection significantly reduces crop damage."],
     }
 
-# =========================================================
 # SECURE CHATBOT PROXY & OFFLINE ENGINE
-# =========================================================
 
 # Helper to load .env variables securely on backend without dependency issues
 def load_env_file():
@@ -633,9 +621,7 @@ def generate_summaries_from_api(crop: str, disease: str, confidence: float) -> d
             "preventionSummary": db_match['prevention']
         }
 
-# =========================================================
 # ROUTES
-# =========================================================
 
 @app.get("/")
 def root():

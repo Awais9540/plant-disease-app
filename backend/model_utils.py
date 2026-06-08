@@ -11,9 +11,7 @@ from torchvision import transforms
 from gradcam import GradCAM, HEALTHY_CLASSES, overlay_heatmap_on_image, image_to_base64
 
 
-# =========================================================
 # CLASS ORDER — must match training order exactly (29 classes)
-# =========================================================
 
 CLASS_NAMES = [
     "Grape leaf black rot",         # 0
@@ -47,9 +45,7 @@ CLASS_NAMES = [
     "tomato septoria leaf spot",    # 28
 ]
 
-# =========================================================
 # TREATMENT MAP (quick single-line summary per class)
-# =========================================================
 
 TREATMENT_MAP = {
     "Grape leaf black rot":         "Remove infected leaves and fruit, improve airflow, and apply a copper or mancozeb fungicide.",
@@ -84,9 +80,7 @@ TREATMENT_MAP = {
 }
 
 
-# =========================================================
 # MODEL — ConvNeXtTinyClassifier
-# =========================================================
 
 class ConvNeXtTinyClassifier(nn.Module):
     """
@@ -119,15 +113,13 @@ class ConvNeXtTinyClassifier(nn.Module):
         return self.head(self.backbone(x))
 
 
-# =========================================================
 # PREDICTOR
-# =========================================================
 
 class PlantDiseasePredictor:
     def __init__(self, model_path: str):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        # ── Load model ────────────────────────────────────────────────────
+        #  Load model 
         raw = torch.load(model_path, map_location=self.device)
         if isinstance(raw, dict):
             if "model_state_dict" in raw:
@@ -151,7 +143,7 @@ class PlantDiseasePredictor:
         self.model.to(self.device)
         self.model.eval()
 
-        # ── Transform — 224×224 (ConvNeXt canonical) ─────────────────────
+        #  Transform — 224×224 (ConvNeXt canonical) 
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((224, 224)),
@@ -162,14 +154,14 @@ class PlantDiseasePredictor:
             ),
         ])
 
-        # ── Grad-CAM target: last ConvNeXt stage ──────────────────────────
+        #  Grad-CAM target: last ConvNeXt stage 
         self.target_layer = self.model.backbone.stages[-1]
 
         self.output_dir = "outputs"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def predict(self, image_bytes: bytes) -> dict:
-        # ── Decode image ──────────────────────────────────────────────────
+        #  Decode image 
         np_arr  = np.frombuffer(image_bytes, np.uint8)
         img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         if img_bgr is None:
@@ -178,7 +170,7 @@ class PlantDiseasePredictor:
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
         input_tensor = self.transform(img_rgb).unsqueeze(0).to(self.device)
 
-        # ── Inference ─────────────────────────────────────────────────────
+        #  Inference 
         with torch.no_grad():
             outputs = self.model(input_tensor)
             probs   = F.softmax(outputs, dim=1)
@@ -188,7 +180,7 @@ class PlantDiseasePredictor:
         disease    = CLASS_NAMES[pred_idx]
         is_healthy = disease.lower() in HEALTHY_CLASSES
 
-        # ── Grad-CAM ──────────────────────────────────────────────────────
+        #  Grad-CAM 
         img_bgr_224  = cv2.resize(img_bgr, (224, 224))
         latest_path  = os.path.join(self.output_dir, "latest_gradcam.jpg")
 

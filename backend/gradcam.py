@@ -4,9 +4,7 @@ import numpy as np
 import torch
 
 
-# =========================================================
 # HEALTHY CLASSES — NO HEATMAP GENERATED FOR THESE
-# =========================================================
 
 HEALTHY_CLASSES = {
     "apple leaf healthy",
@@ -52,7 +50,7 @@ class GradCAM:
         gradients = self.gradients[0]
         activations = self.activations[0]
 
-        # ── Handle both (C, H, W) and (H, W, C) layouts ──────────────────
+        #  Handle both (C, H, W) and (H, W, C) layouts 
         # ConvNeXt uses NHWC internally; EfficientNet uses NCHW.
         # Detect layout: if C >> H and C >> W, then it is (C, H, W).
         if activations.ndim == 3:
@@ -153,7 +151,7 @@ def generate_gradcam(model, image, pred_idx, class_name, output_dir):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # ── Input tensor ──────────────────────────────────────────────────────
+    #  Input tensor 
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
         transforms.ToTensor(),
@@ -162,18 +160,18 @@ def generate_gradcam(model, image, pred_idx, class_name, output_dir):
     ])
     input_tensor = transform(image).unsqueeze(0)
 
-    # ── Base image for overlay (224×224) ──────────────────────────────────
+    #  Base image for overlay (224×224) 
     image_np = np.array(image.resize((224, 224)))
     image_bgr = cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR)
 
     output_path = os.path.join(output_dir, "latest_gradcam.jpg")
 
-    # ── Skip heatmap for healthy leaves ───────────────────────────────────
+    #  Skip heatmap for healthy leaves 
     if class_name.lower() in HEALTHY_CLASSES:
         cv2.imwrite(output_path, image_bgr)
         return output_path
 
-    # ── Grad-CAM on last ConvNeXt stage ───────────────────────────────────
+    #  Grad-CAM on last ConvNeXt stage 
     target_layer = model.backbone.stages[-1]
 
     gradcam = GradCAM(model, target_layer)
