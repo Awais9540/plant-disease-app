@@ -11,6 +11,7 @@ CREATE TABLE public.users (
   avatar_url TEXT,
   location TEXT,
   crop_interests TEXT[],
+  expo_push_token TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
