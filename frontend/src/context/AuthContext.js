@@ -115,8 +115,12 @@ export const AuthProvider = ({ children }) => {
     return await supabase.auth.signOut();
   };
 
+  const resetPassword = async (email) => {
+    return await supabase.auth.resetPasswordForEmail(email);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,7 +7,7 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -20,6 +20,22 @@ export default function LoginScreen({ navigation }) {
     
     if (error) {
       Alert.alert('Login Failed', error.message);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      Alert.alert('Email Required', 'Please enter your email address first to reset your password');
+      return;
+    }
+    setLoading(true);
+    const { error } = await resetPassword(email);
+    setLoading(false);
+    
+    if (error) {
+      Alert.alert('Reset Failed', error.message);
+    } else {
+      Alert.alert('Success', 'Password reset instructions have been sent to your email.');
     }
   };
 
@@ -56,6 +72,10 @@ export default function LoginScreen({ navigation }) {
               secureTextEntry
             />
           </View>
+
+          <TouchableOpacity style={styles.forgotPasswordContainer} onPress={handleForgotPassword}>
+            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
             {loading ? (
@@ -128,6 +148,15 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 16,
     color: '#2c3e50',
+  },
+  forgotPasswordContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 15,
+  },
+  forgotPasswordText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: '600',
   },
   loginButton: {
     backgroundColor: '#2ecc71',
