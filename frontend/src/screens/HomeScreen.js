@@ -69,7 +69,7 @@ export default function HomeScreen({ navigation }) {
           <TouchableOpacity style={styles.roundIcon}>
             <Ionicons name="notifications-outline" size={25} color={colors.primary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.roundIcon}>
+          <TouchableOpacity style={styles.roundIcon} onPress={() => navigation.navigate('Profile')}>
             <Ionicons name="person-circle-outline" size={32} color={colors.primary} />
           </TouchableOpacity>
         </View>
