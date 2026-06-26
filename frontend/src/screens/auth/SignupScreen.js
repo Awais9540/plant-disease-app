@@ -7,6 +7,7 @@ export default function SignupScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
 
@@ -70,8 +71,11 @@ export default function SignupScreen({ navigation }) {
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
             />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#7f8c8d" />
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity style={styles.signupButton} onPress={handleSignup} disabled={loading}>
@@ -150,6 +154,9 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: 16,
     color: '#2c3e50',
+  },
+  eyeIcon: {
+    padding: 5,
   },
   signupButton: {
     backgroundColor: '#2ecc71',
