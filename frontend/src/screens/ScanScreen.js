@@ -38,6 +38,24 @@ const firstValue = (...values) => {
   return null;
 };
 
+const getCropFromDisease = (diseaseName, fallback) => {
+  if (!diseaseName) return fallback;
+  const name = diseaseName.toLowerCase();
+  if (name.includes('tomato')) return 'Tomato';
+  if (name.includes('potato')) return 'Potato';
+  if (name.includes('apple')) return 'Apple';
+  if (name.includes('grape')) return 'Grape';
+  if (name.includes('pepper') || name.includes('bellpepper') || name.includes('bell pepper')) return 'Bell_Pepper';
+  if (name.includes('blueberry')) return 'Blueberry';
+  if (name.includes('cherry')) return 'Cherry';
+  if (name.includes('corn')) return 'Corn';
+  if (name.includes('peach')) return 'Peach';
+  if (name.includes('soyabean') || name.includes('soybeans') || name.includes('soybean')) return 'Soybeans';
+  if (name.includes('squash')) return 'Squash';
+  if (name.includes('strawberry')) return 'Strawberry';
+  return fallback;
+};
+
 export default function ScanScreen({ navigation }) {
   const [selectedCrop, setSelectedCrop] = useState('Tomato');
   const [imageUri, setImageUri] = useState(null);
@@ -126,7 +144,7 @@ export default function ScanScreen({ navigation }) {
 
       const scanResult = {
         id: Date.now().toString(),
-        crop: selectedCrop,
+        crop: getCropFromDisease(disease, selectedCrop),
         imageUri,
         disease,
         confidence: firstValue(
