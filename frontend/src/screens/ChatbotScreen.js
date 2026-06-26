@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -46,17 +46,17 @@ export default function ChatbotScreen({ route, navigation }) {
   }, [cropName, diseaseName, confidence, initializeChatbot]);
 
   // Automatically scroll to bottom when message count changes or keyboard opens
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (flatListRef.current && messages.length > 0) {
       setTimeout(() => {
         flatListRef.current.scrollToEnd({ animated: true });
       }, 100);
     }
-  };
+  }, [messages]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isLoading, isPreGenerating]);
+  }, [messages, isLoading, isPreGenerating, scrollToBottom]);
 
   const handleSend = (text) => {
     sendMessage(text);
