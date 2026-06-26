@@ -1,5 +1,4 @@
 import os
-import base64
 import cv2
 import numpy as np
 import torch
@@ -8,10 +7,10 @@ import torch.nn.functional as F
 import timm
 from torchvision import transforms
 
-from gradcam import GradCAM, HEALTHY_CLASSES, overlay_heatmap_on_image, image_to_base64
+from gradcam import GradCAM, HEALTHY_CLASSES, overlay_heatmap_on_image, image_to_base64, compute_severity
 
 
-# CLASS ORDER — must match training order exactly (29 classes)
+# ── CLASS ORDER — must match training order exactly (29 classes) ───────────────
 
 CLASS_NAMES = [
     "Grape leaf black rot",         # 0
@@ -45,7 +44,7 @@ CLASS_NAMES = [
     "tomato septoria leaf spot",    # 28
 ]
 
-# TREATMENT MAP (quick single-line summary per class)
+# ── TREATMENT MAP ──────────────────────────────────────────────────────────────
 
 TREATMENT_MAP = {
     "Grape leaf black rot":         "Remove infected leaves and fruit, improve airflow, and apply a copper or mancozeb fungicide.",
@@ -80,13 +79,13 @@ TREATMENT_MAP = {
 }
 
 
-# MODEL — ConvNeXtTinyClassifier
+# ── MODEL ──────────────────────────────────────────────────────────────────────
 
 class ConvNeXtTinyClassifier(nn.Module):
     """
-    Mirrors the architecture trained in the ConvNeXt-Tiny notebook.
-    Head: LayerNorm → Dropout → Linear(768→512) → GELU →
-          LayerNorm → Dropout → Linear(512→num_classes)
+    Mirrors the architecture trained in the ConvNeXt-Tiny notebook exactly.
+    Head: LayerNorm → Dropout(0.35) → Linear(768→512) → GELU →
+          LayerNorm → Dropout(0.175) → Linear(512→29)
     """
     def __init__(self, num_classes: int = 29, dropout: float = 0.35):
         super().__init__()
@@ -113,14 +112,14 @@ class ConvNeXtTinyClassifier(nn.Module):
         return self.head(self.backbone(x))
 
 
-# PREDICTOR
+# ── PREDICTOR ──────────────────────────────────────────────────────────────────
 
 class PlantDiseasePredictor:
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str = "models/best_convnext_tiny.pth"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        #  Load model 
-        raw = torch.load(model_path, map_location=self.device)
+        # ── Load weights ──────────────────────────────────────────────────────
+        raw = torch.load(model_path, map_location=self.device, weights_only=True)
         if isinstance(raw, dict):
             if "model_state_dict" in raw:
                 state_dict = raw["model_state_dict"]
@@ -131,6 +130,7 @@ class PlantDiseasePredictor:
         else:
             state_dict = raw
 
+        # Strip DataParallel "module." prefix if present
         state_dict = {
             (k[len("module."):] if k.startswith("module.") else k): v
             for k, v in state_dict.items()
@@ -143,7 +143,7 @@ class PlantDiseasePredictor:
         self.model.to(self.device)
         self.model.eval()
 
-        #  Transform — 224×224 (ConvNeXt canonical) 
+        # ── Inference transform (no augmentation) ────────────────────────────
         self.transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((224, 224)),
@@ -154,23 +154,26 @@ class PlantDiseasePredictor:
             ),
         ])
 
-        #  Grad-CAM target: last ConvNeXt stage 
-        self.target_layer = self.model.backbone.stages[-1]
-
         self.output_dir = "outputs"
         os.makedirs(self.output_dir, exist_ok=True)
 
     def predict(self, image_bytes: bytes) -> dict:
-        #  Decode image 
+        """
+        Full inference pipeline.
+        Returns the same response shape as your original predict(),
+        plus 4 new severity fields.
+        """
+        # ── Decode image ──────────────────────────────────────────────────────
         np_arr  = np.frombuffer(image_bytes, np.uint8)
         img_bgr = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
         if img_bgr is None:
             raise ValueError("Invalid image — could not decode.")
 
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_rgb      = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        img_bgr_224  = cv2.resize(img_bgr, (224, 224))
         input_tensor = self.transform(img_rgb).unsqueeze(0).to(self.device)
 
-        #  Inference 
+        # ── Inference ─────────────────────────────────────────────────────────
         with torch.no_grad():
             outputs = self.model(input_tensor)
             probs   = F.softmax(outputs, dim=1)
@@ -180,31 +183,39 @@ class PlantDiseasePredictor:
         disease    = CLASS_NAMES[pred_idx]
         is_healthy = disease.lower() in HEALTHY_CLASSES
 
-        #  Grad-CAM 
-        img_bgr_224  = cv2.resize(img_bgr, (224, 224))
-        latest_path  = os.path.join(self.output_dir, "latest_gradcam.jpg")
+        # ── Grad-CAM + severity ───────────────────────────────────────────────
+        latest_path = os.path.join(self.output_dir, "latest_gradcam.jpg")
 
         if is_healthy:
-            # No heatmap for healthy classes — save the plain image
             cv2.imwrite(latest_path, img_bgr_224)
             gradcam_b64 = image_to_base64(img_bgr_224)
+            # cam is all zeros for healthy — severity returns 0%
+            cam = np.zeros((224, 224), dtype=np.float32)
         else:
-            gradcam_obj = GradCAM(self.model, self.target_layer)
-            cam         = gradcam_obj.generate(input_tensor, class_idx=pred_idx)
-            gradcam_obj.remove_hooks()
+            # NOTE: model must be in train() mode briefly for gradients to flow
+            # through the backbone during backward(). eval() disables dropout but
+            # that is fine — gradients still work. However if you see all-zero
+            # CAMs, call model.train() here and model.eval() after.
+            gc  = GradCAM(self.model, self.model.backbone.stages[-1])
+            cam = gc.generate(input_tensor, class_idx=pred_idx)
+            gc.remove_hooks()
 
-            cam = np.array(cam, dtype=np.float32)
-            if cam.ndim == 3:
-                cam = cam.squeeze()
-
-            overlay     = overlay_heatmap_on_image(img_bgr_224, cam, alpha=0.6)
+            overlay     = overlay_heatmap_on_image(img_bgr_224, cam, alpha=0.55)
             cv2.imwrite(latest_path, overlay)
             gradcam_b64 = image_to_base64(overlay)
 
+        severity = compute_severity(cam, confidence, disease)
+
         return {
+            # ── original fields (unchanged keys) ──────────────────────────────
             "disease":       disease,
             "confidence":    round(float(confidence), 2),
             "gradcam_image": gradcam_b64,
             "treatment":     TREATMENT_MAP.get(disease, "Consult an agriculture expert."),
             "is_healthy":    is_healthy,
+            # ── new severity fields ───────────────────────────────────────────
+            "severity_pct":    severity["severity_pct"],
+            "severity_label":  severity["severity_label"],
+            "severity_color":  severity["severity_color"],
+            "lesion_area_pct": severity["lesion_area_pct"],
         }
