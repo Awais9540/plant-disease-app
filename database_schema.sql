@@ -1,6 +1,5 @@
 -- ==============================================================================
 -- LEAFDOC PRODUCTION SUPABASE SCHEMA
--- Run this entire script in the Supabase SQL Editor (SQL Editor -> New query)
 -- ==============================================================================
 
 -- 1. Create Users Table
