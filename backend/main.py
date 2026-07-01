@@ -357,11 +357,11 @@ transform = transforms.Compose([
 # HELPERS
 
 def get_severity(conf: float) -> str:
-    if conf >= 90:
-        return "Low"
-    elif conf >= 75:
+    if conf >= 85:
+        return "High"
+    elif conf >= 60:
         return "Medium"
-    return "High"
+    return "Low"
 
 
 def read_image_as_base64(path: str) -> str:
