@@ -34,12 +34,10 @@ const renderParsedText = (text, defaultStyle) => {
 
         let cleanLine = line;
         let lineStyle = [defaultStyle];
-        let isHeader = false;
         let isListItem = false;
         let bulletChar = '';
 
         if (headerMatch) {
-          isHeader = true;
           const headerLevel = headerMatch[1].length;
           cleanLine = headerMatch[2];
           
