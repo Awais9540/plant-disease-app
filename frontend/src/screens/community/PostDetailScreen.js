@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 import { colors } from '../../utils/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 import { API_BASE_URL } from '../../utils/constants';
 
@@ -20,6 +21,7 @@ export default function PostDetailScreen({ route, navigation }) {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { t, textStyle, language } = useLanguage();
 
   useEffect(() => {
     fetchComments();
@@ -112,24 +114,24 @@ export default function PostDetailScreen({ route, navigation }) {
       }
 
     } catch (err) {
-      Alert.alert('Error', 'Failed to post comment.');
+      Alert.alert(t('error'), t('failedToPostComment'));
     } finally {
       setIsSubmitting(false);
     }
   };
   
   const deletePost = () => {
-    Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('deletePost'), t('confirmDeletePost'), [
+      { text: t('cancel'), style: 'cancel' },
       { 
-        text: 'Delete', 
+        text: language === 'ur' ? 'ڈیلیٹ کریں' : 'Delete', 
         style: 'destructive',
         onPress: async () => {
           try {
             await supabase.from('community_posts').delete().eq('id', post.id);
             navigation.goBack();
           } catch (err) {
-            Alert.alert('Error', 'Failed to delete post.');
+            Alert.alert(t('error'), t('failedToDeletePost'));
           }
         }
       }
@@ -144,11 +146,11 @@ export default function PostDetailScreen({ route, navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={26} color="#102A12" />
+          <Ionicons name={language === 'ur' ? 'arrow-forward' : 'arrow-back'} size={26} color="#102A12" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Post</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('post')}</Text>
         {userId === post.author_id ? (
           <TouchableOpacity onPress={deletePost}>
              <Ionicons name="trash-outline" size={24} color="#e74c3c" />
@@ -158,67 +160,67 @@ export default function PostDetailScreen({ route, navigation }) {
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.postSection}>
-          <View style={styles.authorRow}>
+          <View style={[styles.authorRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
             {author.avatar_url ? (
-              <Image source={{ uri: author.avatar_url }} style={styles.avatar} />
+              <Image source={{ uri: author.avatar_url }} style={[styles.avatar, language === 'ur' ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 }]} />
             ) : (
-              <View style={styles.avatarPlaceholder}>
+              <View style={[styles.avatarPlaceholder, language === 'ur' ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 }]}>
                 <Ionicons name="person" size={20} color="#fff" />
               </View>
             )}
             <View>
-              <Text style={styles.name}>{author.full_name || 'Anonymous'}</Text>
-              <Text style={styles.dateText}>
+              <Text style={[styles.name, textStyle]}>{author.full_name || t('anonymousFarmer')}</Text>
+              <Text style={[styles.dateText, textStyle]}>
                 {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
               </Text>
             </View>
           </View>
           
-          <Text style={styles.postTitle}>{post.title}</Text>
-          <Text style={styles.postContent}>{post.content}</Text>
+          <Text style={[styles.postTitle, textStyle]}>{post.title}</Text>
+          <Text style={[styles.postContent, textStyle]}>{post.content}</Text>
           
           {post.image_url && (
             <Image source={{ uri: post.image_url }} style={styles.postImage} />
           )}
           
-          <View style={styles.statsRow}>
-            <TouchableOpacity style={styles.statBtn} onPress={toggleLike}>
+          <View style={[styles.statsRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+            <TouchableOpacity style={[styles.statBtn, language === 'ur' && { flexDirection: 'row-reverse' }, language === 'ur' ? { marginLeft: 25, marginRight: 0 } : { marginRight: 25 }]} onPress={toggleLike}>
               <Ionicons name={isLiked ? "heart" : "heart-outline"} size={22} color={isLiked ? "#e74c3c" : "#6A856A"} />
-              <Text style={styles.statText}>{likesCount} Likes</Text>
+              <Text style={[styles.statText, textStyle, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{likesCount} {t('likesCount')}</Text>
             </TouchableOpacity>
             
-            <View style={styles.statBtn}>
+            <View style={[styles.statBtn, language === 'ur' && { flexDirection: 'row-reverse' }]}>
               <Ionicons name="chatbubble-outline" size={20} color="#6A856A" />
-              <Text style={styles.statText}>{comments.length} Replies</Text>
+              <Text style={[styles.statText, textStyle, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{comments.length} {t('repliesCount')}</Text>
             </View>
           </View>
         </View>
 
         <View style={styles.commentsSection}>
-          <Text style={styles.commentsTitle}>Comments</Text>
+          <Text style={[styles.commentsTitle, textStyle]}>{t('commentsTitle')}</Text>
           
           {loading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} />
           ) : comments.length === 0 ? (
-            <Text style={styles.noCommentsText}>No comments yet. Be the first!</Text>
+            <Text style={[styles.noCommentsText, textStyle]}>{t('noCommentsYet')}</Text>
           ) : (
             comments.map((comment) => (
-              <View key={comment.id} style={styles.commentCard}>
+              <View key={comment.id} style={[styles.commentCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
                 {comment.author?.avatar_url ? (
-                  <Image source={{ uri: comment.author.avatar_url }} style={styles.commentAvatar} />
+                  <Image source={{ uri: comment.author.avatar_url }} style={[styles.commentAvatar, language === 'ur' ? { marginLeft: 10, marginRight: 0 } : { marginRight: 10 }]} />
                 ) : (
-                  <View style={styles.commentAvatarPlaceholder}>
+                  <View style={[styles.commentAvatarPlaceholder, language === 'ur' ? { marginLeft: 10, marginRight: 0 } : { marginRight: 10 }]}>
                     <Ionicons name="person" size={14} color="#fff" />
                   </View>
                 )}
-                <View style={styles.commentBody}>
-                  <View style={styles.commentHeader}>
-                    <Text style={styles.commentName}>{comment.author?.full_name || 'Anonymous'}</Text>
-                    <Text style={styles.commentDate}>
+                <View style={[styles.commentBody, language === 'ur' ? { borderTopRightRadius: 4, borderTopLeftRadius: 16 } : { borderTopLeftRadius: 4, borderTopRightRadius: 16 }]}>
+                  <View style={[styles.commentHeader, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+                    <Text style={[styles.commentName, textStyle]}>{comment.author?.full_name || t('anonymousFarmer')}</Text>
+                    <Text style={[styles.commentDate, textStyle]}>
                       {formatDistanceToNow(new Date(comment.created_at), { addSuffix: true })}
                     </Text>
                   </View>
-                  <Text style={styles.commentContent}>{comment.content}</Text>
+                  <Text style={[styles.commentContent, textStyle]}>{comment.content}</Text>
                 </View>
               </View>
             ))
@@ -226,24 +228,24 @@ export default function PostDetailScreen({ route, navigation }) {
         </View>
       </ScrollView>
 
-      <View style={styles.inputSection}>
+      <View style={[styles.inputSection, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <TextInput
-          style={styles.input}
-          placeholder="Add a reply..."
+          style={[styles.input, textStyle, language === 'ur' && { textAlign: 'right' }]}
+          placeholder={t('addReplyPlaceholder')}
           placeholderTextColor="#9AB29A"
           value={newComment}
           onChangeText={setNewComment}
           multiline
         />
         <TouchableOpacity 
-          style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }]} 
+          style={[styles.sendBtn, !newComment.trim() && { opacity: 0.5 }, language === 'ur' ? { marginRight: 10, marginLeft: 0 } : { marginLeft: 10 }]} 
           onPress={submitComment}
           disabled={!newComment.trim() || isSubmitting}
         >
           {isSubmitting ? (
             <ActivityIndicator color="#fff" size="small" />
           ) : (
-            <Ionicons name="send" size={18} color="#fff" />
+            <Ionicons name={language === 'ur' ? 'send' : 'send'} size={18} color="#fff" />
           )}
         </TouchableOpacity>
       </View>

@@ -8,28 +8,31 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ToolsScreen({ navigation }) {
+  const { t, textStyle, language } = useLanguage();
+
   const calculators = [
     {
-      title: 'Fertilizer Calculator',
-      subtitle: 'Estimate fertilizer amount by crop, area, soil and stage.',
+      title: t('fertilizerCalculator'),
+      subtitle: t('fertilizerCalculatorSub'),
       icon: 'leaf-outline',
       color: colors.primary,
       bg: '#E8F5E9',
       screen: 'FertilizerCalculator',
     },
     {
-      title: 'Pesticide Calculator',
-      subtitle: 'Calculate spray dose, water volume and mixing ratio.',
+      title: t('pesticideCalculator'),
+      subtitle: t('pesticideCalculatorSub'),
       icon: 'flask-outline',
       color: '#FF8F00',
       bg: '#FFF3E0',
       screen: 'PesticideCalculator',
     },
     {
-      title: 'Area Calculator',
-      subtitle: 'Convert acres, hectares, kanal, marla and square units.',
+      title: t('areaCalculator'),
+      subtitle: t('areaCalculatorSub'),
       icon: 'resize-outline',
       color: '#1976D2',
       bg: '#E3F2FD',
@@ -39,20 +42,20 @@ export default function ToolsScreen({ navigation }) {
 
   const smartTools = [
     {
-      title: 'Disease Guide',
-      subtitle: 'Learn symptoms, treatment and prevention.',
+      title: t('diseaseGuide'),
+      subtitle: t('diseaseGuideSub'),
       icon: 'book-outline',
       screen: 'DiseaseGuide',
     },
     {
-      title: 'Spray Schedule',
-      subtitle: 'Plan safe spraying time and reminders.',
+      title: t('spraySchedule'),
+      subtitle: t('sprayScheduleSub'),
       icon: 'calendar-outline',
       screen: 'SpraySchedule',
     },
     {
-      title: 'Weather Advisory',
-      subtitle: 'Check if weather is suitable for spraying.',
+      title: t('weatherAdvisory'),
+      subtitle: t('weatherAdvisorySub'),
       icon: 'partly-sunny-outline',
       screen: 'WeatherAdvisory',
     },
@@ -61,84 +64,82 @@ export default function ToolsScreen({ navigation }) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.title}>Farming Tools</Text>
-        <Text style={styles.subtitle}>
-          Offline calculators and smart crop support tools
+        <Text style={[styles.title, textStyle]}>{t('toolsTitle')}</Text>
+        <Text style={[styles.subtitle, textStyle]}>
+          {t('toolsSubtitle')}
         </Text>
       </View>
 
-      <View style={styles.heroCard}>
-        <View style={styles.heroIcon}>
+      <View style={[styles.heroCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <View style={[styles.heroIcon, language === 'ur' ? { marginLeft: 16, marginRight: 0 } : { marginRight: 16 }]}>
           <Ionicons name="calculator" size={36} color="#fff" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>Plan Before You Apply</Text>
-          <Text style={styles.heroText}>
-            Calculate fertilizer, pesticide and field area before applying anything to your crop.
+          <Text style={[styles.heroTitle, textStyle]}>{t('planBeforeApply')}</Text>
+          <Text style={[styles.heroText, textStyle]}>
+            {t('planBeforeApplyText')}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Main Calculators</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('mainCalculators')}</Text>
 
       {calculators.map((tool) => (
         <TouchableOpacity
           key={tool.title}
-          style={styles.toolCard}
+          style={[styles.toolCard, language === 'ur' && { flexDirection: 'row-reverse' }]}
           onPress={() => navigation.navigate(tool.screen)}
         >
-          <View style={[styles.toolIcon, { backgroundColor: tool.bg }]}>
+          <View style={[styles.toolIcon, { backgroundColor: tool.bg }, language === 'ur' ? { marginLeft: 14, marginRight: 0 } : { marginRight: 14 }]}>
             <Ionicons name={tool.icon} size={30} color={tool.color} />
           </View>
 
           <View style={{ flex: 1 }}>
-            <Text style={styles.toolTitle}>{tool.title}</Text>
-            <Text style={styles.toolSubtitle}>{tool.subtitle}</Text>
+            <Text style={[styles.toolTitle, textStyle]}>{tool.title}</Text>
+            <Text style={[styles.toolSubtitle, textStyle]}>{tool.subtitle}</Text>
           </View>
 
-          <Ionicons name="chevron-forward" size={22} color="#8BA18B" />
+          <Ionicons name={language === 'ur' ? 'chevron-back' : 'chevron-forward'} size={22} color="#8BA18B" />
         </TouchableOpacity>
       ))}
 
-      <Text style={styles.sectionTitle}>Smart Assistant Tools</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('smartAssistantTools')}</Text>
 
-      <View style={styles.grid}>
+      <View style={[styles.grid, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         {smartTools.map((tool) => (
           <TouchableOpacity
             key={tool.title}
             style={styles.gridCard}
             onPress={() => navigation.navigate(tool.screen)}
           >
-            <View style={styles.gridIcon}>
+            <View style={[styles.gridIcon, language === 'ur' && { alignSelf: 'flex-end' }]}>
               <Ionicons name={tool.icon} size={28} color={colors.primary} />
             </View>
 
-            <Text style={styles.gridTitle}>{tool.title}</Text>
-            <Text style={styles.gridSubtitle}>{tool.subtitle}</Text>
+            <Text style={[styles.gridTitle, textStyle]}>{tool.title}</Text>
+            <Text style={[styles.gridSubtitle, textStyle]}>{tool.subtitle}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      <View style={styles.xaiCard}>
-        <View style={styles.xaiIcon}>
+      <View style={[styles.xaiCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <View style={[styles.xaiIcon, language === 'ur' ? { marginLeft: 14, marginRight: 0 } : { marginRight: 14 }]}>
           <Ionicons name="sparkles" size={28} color="#fff" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.xaiTitle}>LeafDoc Smart Advantage</Text>
-          <Text style={styles.xaiText}>
-            Your app combines disease detection, confidence score, Grad-CAM explainability,
-            scan history and offline farming calculators.
+          <Text style={[styles.xaiTitle, textStyle]}>{t('smartAdvantage')}</Text>
+          <Text style={[styles.xaiText, textStyle]}>
+            {t('smartAdvantageText')}
           </Text>
         </View>
       </View>
 
-      <View style={styles.disclaimer}>
+      <View style={[styles.disclaimer, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <Ionicons name="alert-circle-outline" size={22} color="#FF8F00" />
-        <Text style={styles.disclaimerText}>
-          Calculator results are estimates based on standard agronomic guidelines.
-          Always follow product label instructions and consult a local agriculture expert.
+        <Text style={[styles.disclaimerText, textStyle, language === 'ur' ? { marginRight: 10, marginLeft: 0 } : { marginLeft: 10 }]}>
+          {t('calculatorDisclaimer')}
         </Text>
       </View>
     </ScrollView>

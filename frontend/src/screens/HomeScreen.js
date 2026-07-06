@@ -15,6 +15,8 @@ import { WEATHER_PLACEHOLDER } from '../utils/constants';
 import { getHistory } from '../services/storageService';
 import { useWeather } from '../context/WeatherContext';
 import SeverityBadge from '../components/SeverityBadge';
+import { useLanguage } from '../context/LanguageContext';
+import { getCropLabel, getDiseaseLabel } from '../utils/localization';
 
 const getConfidence = (value) => {
   const number = Number(value);
@@ -31,6 +33,7 @@ const formatDate = (dateString) => {
 export default function HomeScreen({ navigation }) {
   const [recentScans, setRecentScans] = useState([]);
   const { weatherData, locationName, sprayAdvisory } = useWeather();
+  const { t, textStyle, language } = useLanguage();
 
   const loadRecentHistory = async () => {
     const history = await getHistory();
@@ -58,7 +61,7 @@ export default function HomeScreen({ navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.topRow}>
         <View>
-          <Text style={styles.greeting}>Good Morning, Farmer!</Text>
+          <Text style={[styles.greeting, textStyle]}>{t('homeGreeting')}</Text>
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={22} color={colors.primary} />
             <Text style={styles.location}>{locationName || 'Sialkot'}</Text>
@@ -99,10 +102,10 @@ export default function HomeScreen({ navigation }) {
 
         <View style={styles.weatherInfoRow}>
           <Text style={styles.weatherInfo}>
-            Humidity: {weatherData ? `${weatherData.current.humidity}%` : WEATHER_PLACEHOLDER.humidity}
+            {t('humidity')}: {weatherData ? `${weatherData.current.humidity}%` : WEATHER_PLACEHOLDER.humidity}
           </Text>
           <Text style={styles.weatherInfo}>
-            Wind: {weatherData ? `${Math.round(weatherData.current.windSpeed)} km/h` : WEATHER_PLACEHOLDER.windSpeed}
+            {t('wind')}: {weatherData ? `${Math.round(weatherData.current.windSpeed)} km/h` : WEATHER_PLACEHOLDER.windSpeed}
           </Text>
         </View>
 
@@ -111,10 +114,10 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.sprayText}>
           {sprayAdvisory ? (
             sprayAdvisory.hasWindow 
-              ? `Optimal Spray Window: ${sprayAdvisory.windows[0].start} - ${sprayAdvisory.windows[0].end}`
-              : 'Avoid chemical spraying today due to weather constraints'
+              ? `${t('optimalSprayWindow')}: ${sprayAdvisory.windows[0].start} - ${sprayAdvisory.windows[0].end}`
+              : t('avoidSprayToday')
           ) : (
-            `Best time to spray today: ${WEATHER_PLACEHOLDER.sprayTime}`
+            t('bestSprayMorning')
           )}
         </Text>
       </TouchableOpacity>
@@ -124,22 +127,22 @@ export default function HomeScreen({ navigation }) {
         onPress={() => navigation.navigate('Scan')}
       >
         <Ionicons name="camera" size={28} color="#fff" />
-        <Text style={styles.scanText}>Scan Your Crop Now</Text>
+        <Text style={styles.scanText}>{t('scanNow')}</Text>
       </TouchableOpacity>
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Diagnosis</Text>
+        <Text style={[styles.sectionTitle, textStyle]}>{t('recentDiagnosis')}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('History')}>
-          <Text style={styles.viewAll}>View All</Text>
+          <Text style={styles.viewAll}>{t('viewAll')}</Text>
         </TouchableOpacity>
       </View>
 
       {recentScans.length === 0 ? (
         <View style={styles.emptyRecent}>
           <Ionicons name="leaf-outline" size={44} color={colors.primary} />
-          <Text style={styles.emptyTitle}>No saved diagnosis yet</Text>
-          <Text style={styles.emptyText}>
-            Scan a leaf and tap “Save to History” to see it here.
+          <Text style={[styles.emptyTitle, textStyle]}>{t('noSavedDiagnosis')}</Text>
+          <Text style={[styles.emptyText, textStyle]}>
+            {t('saveToSeeHere')}
           </Text>
         </View>
       ) : (
@@ -161,13 +164,13 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 )}
 
-                <Text style={styles.cropText}>{item.crop || 'Crop'}</Text>
-                <Text style={styles.diseaseText} numberOfLines={1}>
-                  {item.disease || 'Unknown Disease'}
+                <Text style={[styles.cropText, textStyle]}>{getCropLabel(item.crop, language)}</Text>
+                <Text style={[styles.diseaseText, textStyle]} numberOfLines={1}>
+                  {getDiseaseLabel(item.disease, language)}
                 </Text>
-                <Text style={styles.dateText}>{formatDate(item.date)}</Text>
+                <Text style={[styles.dateText, textStyle]}>{formatDate(item.date)}</Text>
 
-                <View style={styles.cardBottom}>
+                <View style={[styles.cardBottom, language === 'ur' && { flexDirection: 'row-reverse' }]}>
                   <SeverityBadge severity={item.severity || 'Medium'} />
                   <Text style={styles.confidence}>{confidence.toFixed(1)}%</Text>
                 </View>
@@ -177,36 +180,36 @@ export default function HomeScreen({ navigation }) {
         </ScrollView>
       )}
 
-      <Text style={styles.sectionTitle}>Disease Alerts</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('diseaseAlerts')}</Text>
 
-      <View style={styles.alertCard}>
+      <View style={[styles.alertCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <Ionicons name="warning-outline" size={28} color="#FF8F00" />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.alertTitle}>Disease Alert in Your Area</Text>
-          <Text style={styles.alertDisease}>Leaf Blight</Text>
-          <Text style={styles.alertText}>Affected crops: Tomato, Potato</Text>
-          <Text style={styles.alertDate}>23 Apr 2026</Text>
+        <View style={{ flex: 1, marginLeft: language === 'ur' ? 0 : 12, marginRight: language === 'ur' ? 12 : 0 }}>
+          <Text style={[styles.alertTitle, textStyle]}>{t('diseaseAlertArea')}</Text>
+          <Text style={[styles.alertDisease, textStyle]}>{language === 'ur' ? 'پتوں کا جھلساؤ' : 'Leaf Blight'}</Text>
+          <Text style={[styles.alertText, textStyle]}>{t('affectedCrops')}</Text>
+          <Text style={[styles.alertDate, textStyle]}>{language === 'ur' ? '۲۳ اپریل ۲۰۲۶' : '23 Apr 2026'}</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Cultivation Tips</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('cultivationTips')}</Text>
 
-      <View style={styles.tipCard}>
+      <View style={[styles.tipCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <Ionicons name="water-outline" size={28} color={colors.primary} />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.tipTitle}>Avoid Overwatering</Text>
-          <Text style={styles.tipText}>
-            Too much water increases fungal disease risk. Water near the soil, not leaves.
+        <View style={{ flex: 1, marginLeft: language === 'ur' ? 0 : 12, marginRight: language === 'ur' ? 12 : 0 }}>
+          <Text style={[styles.tipTitle, textStyle]}>{t('avoidOverwatering')}</Text>
+          <Text style={[styles.tipText, textStyle]}>
+            {t('overwateringTip')}
           </Text>
         </View>
       </View>
 
-      <View style={styles.tipCard}>
+      <View style={[styles.tipCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <Ionicons name="leaf-outline" size={28} color={colors.primary} />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <Text style={styles.tipTitle}>Inspect Leaves Weekly</Text>
-          <Text style={styles.tipText}>
-            Early symptoms are easier to control. Scan suspicious leaves with LeafDoc.
+        <View style={{ flex: 1, marginLeft: language === 'ur' ? 0 : 12, marginRight: language === 'ur' ? 12 : 0 }}>
+          <Text style={[styles.tipTitle, textStyle]}>{t('inspectWeekly')}</Text>
+          <Text style={[styles.tipText, textStyle]}>
+            {t('inspectWeeklyTip')}
           </Text>
         </View>
       </View>

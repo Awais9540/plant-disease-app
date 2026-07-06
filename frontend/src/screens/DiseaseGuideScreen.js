@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getDiseaseLabel } from '../utils/localization';
 
 const diseases = [
     "Grape leaf black rot",         
@@ -10,23 +12,15 @@ const diseases = [
     "apple leaf rust",             
     "apple leaf scab",              
     "bell pepper leaf spot",             
-                  
-                     
     "corn gray leaf spot",          
-                       
     "corn leaf blight",             
     "corn leaf rust",               
-               
-                       
     "potato leaf early blight",     
     "potato leaf late blight",      
     "potato leafroll virus",        
-                    
     "squash powedry milddew leaf",  
-                  
     "tomato leaf bacterial spot",   
     "tomato leaf early blight",     
-              
     "tomato leaf late blight",      
     "tomato leaf mold",             
     "tomato leaf powdery mildew",   
@@ -35,40 +29,43 @@ const diseases = [
 
 export default function DiseaseGuideScreen({ navigation }) {
   const [query, setQuery] = useState('');
+  const { t, textStyle, language } = useLanguage();
 
   const filtered = diseases.filter((item) =>
-    item.toLowerCase().includes(query.toLowerCase())
+    getDiseaseLabel(item, language).toLowerCase().includes(query.toLowerCase())
   );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-        <Ionicons name="arrow-back" size={22} color={colors.primary} />
-      </TouchableOpacity>
+      <View style={[language === 'ur' && { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name={language === 'ur' ? 'arrow-forward' : 'arrow-back'} size={22} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
 
-      <Text style={styles.title}>Disease Guide</Text>
-      <Text style={styles.subtitle}>Symptoms, treatment and prevention for your 29 classes.</Text>
+      <Text style={[styles.title, textStyle]}>{t('diseaseGuideTitle')}</Text>
+      <Text style={[styles.subtitle, textStyle]}>{t('diseaseGuideSubtitle')}</Text>
 
-      <View style={styles.searchBox}>
+      <View style={[styles.searchBox, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <Ionicons name="search-outline" size={20} color="#6A856A" />
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Search disease..."
+          placeholder={t('searchDisease')}
           placeholderTextColor="#8BA18B"
-          style={styles.searchInput}
+          style={[styles.searchInput, textStyle, language === 'ur' ? { marginRight: 8, marginLeft: 0, textAlign: 'right' } : { marginLeft: 8 }]}
         />
       </View>
 
       {filtered.map((item) => (
-        <View key={item} style={styles.card}>
-          <View style={styles.iconBox}>
+        <View key={item} style={[styles.card, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <View style={[styles.iconBox, language === 'ur' ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 }]}>
             <Ionicons name="leaf-outline" size={26} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.disease}>{item}</Text>
-            <Text style={styles.text}>Symptoms: spots, discoloration, curling, lesions, or healthy leaf condition.</Text>
-            <Text style={styles.text}>Action: remove infected parts, avoid overhead watering, use recommended spray if needed.</Text>
+            <Text style={[styles.disease, textStyle]}>{getDiseaseLabel(item, language)}</Text>
+            <Text style={[styles.text, textStyle]}>{t('defaultSymptoms')}</Text>
+            <Text style={[styles.text, textStyle]}>{t('defaultAction')}</Text>
           </View>
         </View>
       ))}
@@ -100,7 +97,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 2,
   },
-  searchInput: { flex: 1, marginLeft: 8, fontWeight: '700', color: '#102A12' },
+  searchInput: { flex: 1, fontWeight: '700', color: '#102A12' },
   card: {
     marginTop: 14,
     backgroundColor: '#fff',
@@ -116,8 +113,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F5E9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
   },
-  disease: { fontSize: 17, fontWeight: '900', color: '#102A12', textTransform: 'capitalize' },
+  disease: { fontSize: 17, fontWeight: '900', color: '#102A12' },
   text: { marginTop: 7, color: '#6A856A', lineHeight: 20, fontWeight: '600' },
 });

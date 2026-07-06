@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -9,10 +10,11 @@ export default function LoginScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, resetPassword } = useAuth();
+  const { t, textStyle, language, setLanguage } = useLanguage();
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('error'), t('fillAllFields'));
       return;
     }
     setLoading(true);
@@ -20,13 +22,13 @@ export default function LoginScreen({ navigation }) {
     setLoading(false);
     
     if (error) {
-      Alert.alert('Login Failed', error.message);
+      Alert.alert(t('loginFailed'), error.message);
     }
   };
 
   const handleForgotPassword = async () => {
     if (!email) {
-      Alert.alert('Email Required', 'Please enter your email address first to reset your password');
+      Alert.alert(t('emailRequired'), t('enterEmailFirst'));
       return;
     }
     setLoading(true);
@@ -34,9 +36,9 @@ export default function LoginScreen({ navigation }) {
     setLoading(false);
     
     if (error) {
-      Alert.alert('Reset Failed', error.message);
+      Alert.alert(t('resetFailed'), error.message);
     } else {
-      Alert.alert('Success', 'Password reset instructions have been sent to your email.');
+      Alert.alert(t('success'), t('resetSent'));
     }
   };
 
@@ -45,9 +47,22 @@ export default function LoginScreen({ navigation }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.keyboardView}>
         
         <View style={styles.headerContainer}>
+          <View style={styles.languageToggle}>
+            {['en', 'ur'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                onPress={() => setLanguage(option)}
+                style={[styles.languageOption, language === option && styles.languageOptionActive]}
+              >
+                <Text style={[styles.languageText, language === option && styles.languageTextActive]}>
+                  {option === 'en' ? t('english') : t('urdu')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
           <Ionicons name="leaf" size={60} color="#2ecc71" />
-          <Text style={styles.title}>Welcome to LeafDoc</Text>
-          <Text style={styles.subtitle}>Sign in to continue</Text>
+          <Text style={[styles.title, textStyle]}>{t('loginWelcome')}</Text>
+          <Text style={[styles.subtitle, textStyle]}>{t('loginSubtitle')}</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -55,7 +70,7 @@ export default function LoginScreen({ navigation }) {
             <Ionicons name="mail-outline" size={20} color="#7f8c8d" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder={t('email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -67,7 +82,7 @@ export default function LoginScreen({ navigation }) {
             <Ionicons name="lock-closed-outline" size={20} color="#7f8c8d" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder={t('password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -78,22 +93,22 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           <TouchableOpacity style={styles.forgotPasswordContainer} onPress={handleForgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            <Text style={[styles.forgotPasswordText, textStyle]}>{t('forgotPassword')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.loginButtonText}>Login</Text>
+              <Text style={styles.loginButtonText}>{t('login')}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Text style={[styles.footerText, textStyle]}>{t('noAccount')} </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-            <Text style={styles.signupText}>Sign Up</Text>
+            <Text style={styles.signupText}>{t('signUp')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -115,6 +130,28 @@ const styles = StyleSheet.create({
   headerContainer: {
     alignItems: 'center',
     marginBottom: 40,
+  },
+  languageToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 18,
+    padding: 4,
+    marginBottom: 18,
+  },
+  languageOption: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  languageOptionActive: {
+    backgroundColor: '#2ecc71',
+  },
+  languageText: {
+    color: '#2c3e50',
+    fontWeight: '800',
+  },
+  languageTextActive: {
+    color: '#FFFFFF',
   },
   title: {
     fontSize: 28,

@@ -7,6 +7,7 @@ import { decode } from 'base64-arraybuffer';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../services/supabase';
 import { colors } from '../../utils/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 const CATEGORIES = ['General', 'Tomato', 'Wheat', 'Rice', 'Corn'];
 
@@ -19,11 +20,12 @@ export default function CreatePostScreen({ navigation }) {
   const [category, setCategory] = useState('General');
   const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { t, textStyle, language } = useLanguage();
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Permission required', 'We need access to your photos.');
+      Alert.alert(t('permissionRequired'), t('photoPermissionText'));
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -59,7 +61,7 @@ export default function CreatePostScreen({ navigation }) {
 
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Incomplete', 'Please enter a title and question.');
+      Alert.alert(t('incomplete'), t('enterTitleAndQuestion'));
       return;
     }
     
@@ -81,14 +83,23 @@ export default function CreatePostScreen({ navigation }) {
       
       if (error) throw error;
       
-      Alert.alert('Success', 'Your post has been published.');
+      Alert.alert(t('success'), t('postPublished'));
       navigation.goBack();
     } catch (error) {
       console.log('Error creating post:', error);
-      Alert.alert('Error creating post', error.message || JSON.stringify(error));
+      Alert.alert(t('errorCreatingPost'), error.message || JSON.stringify(error));
     } finally {
       setLoading(false);
     }
+  };
+
+  const getCategoryLabel = (cat) => {
+    if (cat === 'General') return language === 'ur' ? 'عام' : 'General';
+    if (cat === 'Tomato') return language === 'ur' ? 'ٹماٹر' : 'Tomato';
+    if (cat === 'Wheat') return language === 'ur' ? 'گندم' : 'Wheat';
+    if (cat === 'Rice') return language === 'ur' ? 'چاول' : 'Rice';
+    if (cat === 'Corn') return language === 'ur' ? 'مکئی' : 'Corn';
+    return cat;
   };
 
   return (
@@ -96,31 +107,31 @@ export default function CreatePostScreen({ navigation }) {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="close" size={28} color="#102A12" />
+          <Ionicons name={language === 'ur' ? 'close' : 'close'} size={28} color="#102A12" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Post</Text>
+        <Text style={[styles.headerTitle, textStyle]}>{t('newPost')}</Text>
         <TouchableOpacity onPress={handleSubmit} disabled={loading}>
           {loading ? (
              <ActivityIndicator color={colors.primary} />
           ) : (
-             <Text style={styles.publishText}>Publish</Text>
+             <Text style={styles.publishText}>{t('publish')}</Text>
           )}
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.categoryRow}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={language === 'ur' && { flexDirection: 'row-reverse' }}>
             {CATEGORIES.map(cat => (
               <TouchableOpacity
                 key={cat}
-                style={[styles.catBadge, category === cat && styles.catBadgeActive]}
+                style={[styles.catBadge, category === cat && styles.catBadgeActive, language === 'ur' ? { marginLeft: 10, marginRight: 0 } : { marginRight: 10 }]}
                 onPress={() => setCategory(cat)}
               >
                 <Text style={[styles.catText, category === cat && styles.catTextActive]}>
-                  {cat}
+                  {getCategoryLabel(cat)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -128,8 +139,8 @@ export default function CreatePostScreen({ navigation }) {
         </View>
 
         <TextInput
-          style={styles.titleInput}
-          placeholder="Give your post a title..."
+          style={[styles.titleInput, textStyle, language === 'ur' && { textAlign: 'right' }]}
+          placeholder={t('postTitlePlaceholder')}
           placeholderTextColor="#9AB29A"
           value={title}
           onChangeText={setTitle}
@@ -137,8 +148,8 @@ export default function CreatePostScreen({ navigation }) {
         />
 
         <TextInput
-          style={styles.contentInput}
-          placeholder="Describe your crop issue, disease symptoms, or ask a question to the community..."
+          style={[styles.contentInput, textStyle, language === 'ur' && { textAlign: 'right' }]}
+          placeholder={t('postContentPlaceholder')}
           placeholderTextColor="#9AB29A"
           value={content}
           onChangeText={setContent}
@@ -156,10 +167,10 @@ export default function CreatePostScreen({ navigation }) {
         )}
       </ScrollView>
 
-      <View style={styles.footerRow}>
-        <TouchableOpacity style={styles.iconBtn} onPress={pickImage}>
+      <View style={[styles.footerRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <TouchableOpacity style={[styles.iconBtn, language === 'ur' && { flexDirection: 'row-reverse' }]} onPress={pickImage}>
           <Ionicons name="image-outline" size={24} color={colors.primary} />
-          <Text style={styles.iconBtnText}>Attach Photo</Text>
+          <Text style={[styles.iconBtnText, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{t('attachPhoto')}</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -205,7 +216,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FBF6',
     borderWidth: 1,
     borderColor: '#EDF4ED',
-    marginRight: 10,
   },
   catBadgeActive: {
     backgroundColor: colors.primary,
@@ -265,6 +275,5 @@ const styles = StyleSheet.create({
   iconBtnText: {
     color: colors.primary,
     fontWeight: 'bold',
-    marginLeft: 8,
   },
 });

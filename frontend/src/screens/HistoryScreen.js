@@ -7,6 +7,8 @@ import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { colors, COLORS } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getCropLabel, getDiseaseLabel } from '../utils/localization';
 
 export default function HistoryScreen({ navigation }) {
   const { session } = useAuth();
@@ -14,6 +16,7 @@ export default function HistoryScreen({ navigation }) {
   
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { t, textStyle, language } = useLanguage();
 
   const fetchHistory = async () => {
     if (!userId) return;
@@ -29,7 +32,7 @@ export default function HistoryScreen({ navigation }) {
       setHistory(data || []);
     } catch (error) {
       console.log('Error fetching history:', error);
-      Alert.alert('Error', 'Failed to load your scan history.');
+      Alert.alert(t('error'), language === 'ur' ? 'ہسٹری لوڈ کرنے میں ناکامی۔' : 'Failed to load your scan history.');
     } finally {
       setLoading(false);
     }
@@ -43,12 +46,12 @@ export default function HistoryScreen({ navigation }) {
 
   const deleteRecord = (id) => {
     Alert.alert(
-      'Delete Scan',
-      'Are you sure you want to permanently delete this scan?',
+      language === 'ur' ? 'اسکین ڈیلیٹ کریں' : 'Delete Scan',
+      language === 'ur' ? 'کیا آپ واقعی اس اسکین کو مستقل طور پر ڈیلیٹ کرنا چاہتے ہیں؟' : 'Are you sure you want to permanently delete this scan?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: language === 'ur' ? 'ڈیلیٹ کریں' : 'Delete',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -59,7 +62,7 @@ export default function HistoryScreen({ navigation }) {
               if (error) throw error;
               setHistory(prev => prev.filter(item => item.id !== id));
             } catch (err) {
-              Alert.alert('Error', 'Failed to delete the scan.');
+              Alert.alert(t('error'), language === 'ur' ? 'اسکین ڈیلیٹ کرنے میں ناکامی۔' : 'Failed to delete the scan.');
             }
           },
         },
@@ -69,12 +72,12 @@ export default function HistoryScreen({ navigation }) {
 
   const clearAllHistory = () => {
     Alert.alert(
-      'Clear All History',
-      'This will permanently delete ALL your saved scans from the cloud.',
+      language === 'ur' ? 'تمام ہسٹری صاف کریں' : 'Clear All History',
+      language === 'ur' ? 'اس سے آپ کے تمام محفوظ کردہ اسکین مستقل طور پر کلاؤڈ سے ڈیلیٹ ہو جائیں گے۔' : 'This will permanently delete ALL your saved scans from the cloud.',
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Clear All',
+          text: language === 'ur' ? 'تمام صاف کریں' : 'Clear All',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -85,7 +88,7 @@ export default function HistoryScreen({ navigation }) {
               if (error) throw error;
               setHistory([]);
             } catch (err) {
-              Alert.alert('Error', 'Failed to clear history.');
+              Alert.alert(t('error'), language === 'ur' ? 'ہسٹری صاف کرنے میں ناکامی۔' : 'Failed to clear history.');
             }
           },
         },
@@ -113,7 +116,7 @@ export default function HistoryScreen({ navigation }) {
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
-      style={styles.historyCard}
+      style={[styles.historyCard, language === 'ur' && { flexDirection: 'row-reverse' }]}
       onPress={() => viewDetails(item)}
       activeOpacity={0.7}
     >
@@ -125,26 +128,26 @@ export default function HistoryScreen({ navigation }) {
         )}
       </View>
 
-      <View style={styles.cardInfo}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.cropText}>{item.crop_name.replace('_', ' ')}</Text>
-          <Text style={styles.dateText}>
+      <View style={[styles.cardInfo, language === 'ur' ? { marginRight: 14, marginLeft: 0 } : { marginLeft: 14 }]}>
+        <View style={[styles.cardHeader, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <Text style={[styles.cropText, textStyle]}>{getCropLabel(item.crop_name, language)}</Text>
+          <Text style={[styles.dateText, textStyle]}>
             {format(new Date(item.created_at), 'MMM dd, yyyy')}
           </Text>
         </View>
 
-        <Text style={styles.diseaseText} numberOfLines={1}>
-          {item.disease_name}
+        <Text style={[styles.diseaseText, textStyle]} numberOfLines={1}>
+          {getDiseaseLabel(item.disease_name, language)}
         </Text>
 
-        <View style={styles.confidenceRow}>
+        <View style={[styles.confidenceRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
           <Ionicons
             name={item.is_healthy ? 'checkmark-circle' : 'warning'}
             size={16}
             color={item.is_healthy ? '#2ecc71' : '#e74c3c'}
           />
-          <Text style={styles.confidenceText}>
-            {item.confidence_score}% Match
+          <Text style={[styles.confidenceText, textStyle, language === 'ur' ? { marginRight: 4, marginLeft: 0 } : { marginLeft: 4 }]}>
+            {item.confidence_score}% {language === 'ur' ? 'میچ' : 'Match'}
           </Text>
         </View>
       </View>
@@ -160,11 +163,11 @@ export default function HistoryScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Cloud History</Text>
+      <View style={[styles.header, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <Text style={[styles.title, textStyle]}>{language === 'ur' ? 'اسکین ہسٹری' : 'Cloud History'}</Text>
         {history.length > 0 && (
           <TouchableOpacity onPress={clearAllHistory} style={styles.clearBtn}>
-            <Text style={styles.clearText}>Clear All</Text>
+            <Text style={styles.clearText}>{language === 'ur' ? 'تمام صاف کریں' : 'Clear All'}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -172,22 +175,24 @@ export default function HistoryScreen({ navigation }) {
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading your scans...</Text>
+          <Text style={[styles.loadingText, textStyle]}>{language === 'ur' ? 'لوڈ ہو رہا ہے...' : 'Loading your scans...'}</Text>
         </View>
       ) : history.length === 0 ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconCircle}>
             <Ionicons name="time-outline" size={48} color={COLORS.primary} />
           </View>
-          <Text style={styles.emptyTitle}>No Scans Yet</Text>
-          <Text style={styles.emptyText}>
-            Your future AI disease scans will be securely saved here in the cloud.
+          <Text style={[styles.emptyTitle, textStyle]}>{language === 'ur' ? 'ابھی تک کوئی اسکین نہیں' : 'No Scans Yet'}</Text>
+          <Text style={[styles.emptyText, textStyle]}>
+            {language === 'ur' 
+              ? 'آپ کی مستقبل کی AI تشخیص کی رپورٹیں یہاں کلاؤڈ میں محفوظ ہوں گی۔' 
+              : 'Your future AI disease scans will be securely saved here in the cloud.'}
           </Text>
           <TouchableOpacity
             style={styles.scanNowBtn}
             onPress={() => navigation.navigate('Scan')}
           >
-            <Text style={styles.scanNowText}>Scan a Leaf</Text>
+            <Text style={styles.scanNowText}>{language === 'ur' ? 'پتا اسکین کریں' : 'Scan a Leaf'}</Text>
           </TouchableOpacity>
         </View>
       ) : (

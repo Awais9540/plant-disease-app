@@ -19,9 +19,11 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabase';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function ProfileScreen() {
   const { session, signOut } = useAuth();
+  const { t, textStyle, rowStyle, language, setLanguage } = useLanguage();
   const userId = session?.user?.id;
 
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,7 @@ export default function ProfileScreen() {
 
   const saveEditedProfile = async () => {
     if (!draftName.trim()) {
-      Alert.alert('Name required', 'Please enter your name.');
+      Alert.alert(t('nameRequired'), t('enterName'));
       return;
     }
 
@@ -111,18 +113,18 @@ export default function ProfileScreen() {
 
       setProfile(prev => ({ ...prev, ...updates }));
       setEditVisible(false);
-      Alert.alert('Saved', 'Profile updated successfully.');
+      Alert.alert(t('saved'), t('profileUpdated'));
     } catch (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert(t('error'), error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    Alert.alert('Log Out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Sign Out', style: 'destructive', onPress: async () => await signOut() }
+    Alert.alert(t('logoutTitle'), t('logoutMessage'), [
+      { text: t('cancel'), style: 'cancel' },
+      { text: t('signOut'), style: 'destructive', onPress: async () => await signOut() }
     ]);
   };
 
@@ -176,23 +178,23 @@ export default function ProfileScreen() {
       if (updateError) throw updateError;
       
       setProfile(prev => ({ ...prev, avatar_url: avatarUrl }));
-      Alert.alert('Success', 'Profile picture updated!');
+      Alert.alert(t('success'), t('profilePictureUpdated'));
     } catch (error) {
-      Alert.alert('Upload Failed', error.message);
+      Alert.alert(t('uploadFailed'), error.message);
     } finally {
       setLoading(false);
     }
   };
 
   const menuItem = (icon, title, subtitle, onPress, destructive = false) => (
-    <TouchableOpacity style={styles.menuCard} onPress={onPress}>
+    <TouchableOpacity style={[styles.menuCard, rowStyle]} onPress={onPress}>
       <View style={[styles.menuIcon, destructive && { backgroundColor: '#FFEBEE' }]}>
         <Ionicons name={icon} size={22} color={destructive ? '#E53935' : colors.primary} />
       </View>
 
       <View style={{ flex: 1 }}>
-        <Text style={[styles.menuTitle, destructive && { color: '#E53935' }]}>{title}</Text>
-        <Text style={styles.menuSubtitle}>{subtitle}</Text>
+        <Text style={[styles.menuTitle, textStyle, destructive && { color: '#E53935' }]}>{title}</Text>
+        <Text style={[styles.menuSubtitle, textStyle]}>{subtitle}</Text>
       </View>
 
       <Ionicons name="chevron-forward" size={20} color={destructive ? "#E53935" : "#9AB29A"} />
@@ -201,7 +203,7 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.header}>Profile</Text>
+      <Text style={[styles.header, textStyle]}>{t('profile')}</Text>
 
       <View style={styles.profileCard}>
         <TouchableOpacity style={styles.avatar} onPress={handleImagePick}>
@@ -217,35 +219,58 @@ export default function ProfileScreen() {
         ) : (
           <>
             <Text style={styles.name}>{profile.full_name || session?.user?.email}</Text>
-            <Text style={styles.location}>{profile.location || 'Location not set'}</Text>
+            <Text style={[styles.location, textStyle]}>{profile.location || t('locationNotSet')}</Text>
             <Text style={styles.email}>{session?.user?.email}</Text>
           </>
         )}
 
         <TouchableOpacity style={styles.editBtn} onPress={openEditModal}>
           <Ionicons name="create-outline" size={16} color={colors.primary} />
-          <Text style={styles.editText}>Edit Profile</Text>
+          <Text style={styles.editText}>{t('editProfile')}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statNumber}>{totalScans}</Text>
-          <Text style={styles.statLabel}>Cloud Scans</Text>
+          <Text style={[styles.statLabel, textStyle]}>{t('cloudScans')}</Text>
         </View>
 
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>Online</Text>
-          <Text style={styles.statLabel}>Status</Text>
+          <Text style={styles.statNumber}>{t('online')}</Text>
+          <Text style={[styles.statLabel, textStyle]}>{t('status')}</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Account</Text>
+      <Text style={[styles.sectionTitle, textStyle]}>{t('preferences')}</Text>
+
+      <View style={styles.languageCard}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.menuTitle, textStyle]}>{t('appLanguage')}</Text>
+          <Text style={[styles.menuSubtitle, textStyle]}>{t('languageHelp')}</Text>
+        </View>
+
+        <View style={styles.languageToggle}>
+          {['en', 'ur'].map((option) => (
+            <TouchableOpacity
+              key={option}
+              onPress={() => setLanguage(option)}
+              style={[styles.languageOption, language === option && styles.languageOptionActive]}
+            >
+              <Text style={[styles.languageText, language === option && styles.languageTextActive]}>
+                {option === 'en' ? t('english') : t('urdu')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <Text style={[styles.sectionTitle, textStyle]}>{t('account')}</Text>
 
       {menuItem(
         'log-out-outline',
-        'Sign Out',
-        'Log out of your account',
+        t('signOut'),
+        t('signOutSubtitle'),
         handleLogout,
         true
       )}
@@ -253,22 +278,22 @@ export default function ProfileScreen() {
       <Modal visible={editVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
+            <Text style={[styles.modalTitle, textStyle]}>{t('editProfile')}</Text>
 
-            <Text style={styles.inputLabel}>Name</Text>
+            <Text style={[styles.inputLabel, textStyle]}>{t('name')}</Text>
             <TextInput
               value={draftName}
               onChangeText={setDraftName}
               style={styles.input}
-              placeholder="Enter your name"
+              placeholder={t('enterNamePlaceholder')}
             />
 
-            <Text style={styles.inputLabel}>Location</Text>
+            <Text style={[styles.inputLabel, textStyle]}>{t('location')}</Text>
             <TextInput
               value={draftLocation}
               onChangeText={setDraftLocation}
               style={styles.input}
-              placeholder="Enter your location"
+              placeholder={t('enterLocationPlaceholder')}
             />
 
             <View style={styles.modalActions}>
@@ -277,11 +302,11 @@ export default function ProfileScreen() {
                 onPress={() => setEditVisible(false)}
                 disabled={loading}
               >
-                <Text style={styles.cancelText}>Cancel</Text>
+                <Text style={styles.cancelText}>{t('cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.saveBtn} onPress={saveEditedProfile} disabled={loading}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>{t('save')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -390,6 +415,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 2,
+  },
+  languageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 2,
+    gap: 12,
+  },
+  languageToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 18,
+    padding: 4,
+  },
+  languageOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  languageOptionActive: {
+    backgroundColor: colors.primary,
+  },
+  languageText: {
+    color: '#102A12',
+    fontWeight: '900',
+    fontSize: 12,
+  },
+  languageTextActive: {
+    color: '#FFFFFF',
   },
   menuIcon: {
     width: 46,

@@ -2,45 +2,54 @@ import React from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function SprayScheduleScreen({ navigation }) {
+  const { t, textStyle, language } = useLanguage();
+
   const addReminder = () => {
-    Alert.alert('Reminder Added', 'Demo reminder saved. Real notifications can be added later.');
+    Alert.alert(t('reminderAddedTitle'), t('reminderAddedMsg'));
   };
+
+  const scheduleItems = [
+    [t('morningSpray'), t('morningSprayTime'), t('morningSprayDesc')],
+    [t('eveningSpray'), t('eveningSprayTime'), t('eveningSprayDesc')],
+    [t('avoidSpray'), t('avoidSprayTime'), t('avoidSprayDesc')],
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-        <Ionicons name="arrow-back" size={22} color={colors.primary} />
-      </TouchableOpacity>
-
-      <Text style={styles.title}>Spray Schedule</Text>
-      <Text style={styles.subtitle}>Plan safe spraying time and reduce disease spread.</Text>
-
-      <View style={styles.heroCard}>
-        <Ionicons name="partly-sunny-outline" size={42} color="#fff" />
-        <Text style={styles.heroTitle}>Best Spray Time</Text>
-        <Text style={styles.heroText}>Morning or evening when wind is low and temperature is moderate.</Text>
+      <View style={[language === 'ur' && { flexDirection: 'row-reverse', justifyContent: 'space-between', alignItems: 'center' }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name={language === 'ur' ? 'arrow-forward' : 'arrow-back'} size={22} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
-      {[
-        ['Morning Spray', '6:00 AM - 9:00 AM', 'Best for most fungicide and pesticide sprays.'],
-        ['Evening Spray', '5:00 PM - 7:00 PM', 'Good when daytime temperature is very high.'],
-        ['Avoid Spray', '12:00 PM - 3:00 PM', 'Heat and wind can reduce spray effectiveness.'],
-      ].map((item) => (
-        <View key={item[0]} style={styles.card}>
+      <Text style={[styles.title, textStyle]}>{t('sprayScheduleTitle')}</Text>
+      <Text style={[styles.subtitle, textStyle]}>{t('sprayScheduleSubtitle')}</Text>
+
+      <View style={[styles.heroCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <Ionicons name="partly-sunny-outline" size={42} color="#fff" style={language === 'ur' ? { marginLeft: 16 } : { marginRight: 16 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.heroTitle, textStyle]}>{t('bestSprayTime')}</Text>
+          <Text style={[styles.heroText, textStyle]}>{t('bestSprayTimeText')}</Text>
+        </View>
+      </View>
+
+      {scheduleItems.map((item) => (
+        <View key={item[0]} style={[styles.card, language === 'ur' && { flexDirection: 'row-reverse' }]}>
           <Ionicons name="time-outline" size={28} color={colors.primary} />
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={styles.cardTitle}>{item[0]}</Text>
-            <Text style={styles.cardTime}>{item[1]}</Text>
-            <Text style={styles.cardText}>{item[2]}</Text>
+          <View style={[{ flex: 1 }, language === 'ur' ? { marginRight: 12, marginLeft: 0 } : { marginLeft: 12 }]}>
+            <Text style={[styles.cardTitle, textStyle]}>{item[0]}</Text>
+            <Text style={[styles.cardTime, textStyle]}>{item[1]}</Text>
+            <Text style={[styles.cardText, textStyle]}>{item[2]}</Text>
           </View>
         </View>
       ))}
 
-      <TouchableOpacity style={styles.btn} onPress={addReminder}>
+      <TouchableOpacity style={[styles.btn, language === 'ur' && { flexDirection: 'row-reverse' }]} onPress={addReminder}>
         <Ionicons name="notifications-outline" size={21} color="#fff" />
-        <Text style={styles.btnText}>Add Spray Reminder</Text>
+        <Text style={[styles.btnText, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{t('addSprayReminder')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -66,8 +75,10 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     padding: 24,
     elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  heroTitle: { marginTop: 12, color: '#fff', fontSize: 24, fontWeight: '900' },
+  heroTitle: { color: '#fff', fontSize: 24, fontWeight: '900' },
   heroText: { marginTop: 8, color: '#E8F5E9', lineHeight: 21, fontWeight: '600' },
   card: {
     marginTop: 14,
@@ -89,5 +100,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
   },
-  btnText: { color: '#fff', fontWeight: '900', marginLeft: 8 },
+  btnText: { color: '#fff', fontWeight: '900' },
 });

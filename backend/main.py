@@ -453,6 +453,7 @@ class SummaryPayload(BaseModel):
     crop: str
     disease: str
     confidence: float
+    language: Optional[str] = "en"
 
 OFFLINE_DISEASE_DB = {
     'apple leaf scab': {
@@ -542,7 +543,7 @@ def call_groq_api(messages: List[Dict[str, str]], system_prompt: str = None) -> 
         print(f"Error calling Groq API securely: {e}")
         raise e
 
-def generate_summaries_from_api(crop: str, disease: str, confidence: float) -> dict:
+def generate_summaries_from_api(crop: str, disease: str, confidence: float, language: str = "en") -> dict:
     apiKey = os.getenv("GROQ_API_KEY")
     normalized_disease = disease.lower().strip()
     is_offline = (
@@ -567,19 +568,34 @@ def generate_summaries_from_api(crop: str, disease: str, confidence: float) -> d
         if not db_match:
             db_match = OFFLINE_DISEASE_DB["default"]
             
+        if language == "ur":
+            return {
+                "diseaseSummary": f"[آف لائن سرور موڈ] **{crop}** پر **{disease}** کی شناخت ہوئی ہے (یقین کی شرح {confidence:.1f}%)۔ {db_match['description']}",
+                "treatmentSummary": f"یہاں آف لائن تجویز کردہ علاج ہیں:\n\n{db_match['treatment']}",
+                "preventionSummary": f"باقی فصلوں کو بچانے کے لیے یہ اقدامات کریں:\n\n{db_match['prevention']}"
+            }
         return {
             "diseaseSummary": f"[Offline Server Mode] **{disease}** is currently identified on your **{crop}** with a confidence score of **{confidence:.1f}%**. {db_match['description']}",
             "treatmentSummary": f"Here are the top offline recommended treatments:\n\n{db_match['treatment']}",
             "preventionSummary": f"Take these practical steps to protect remaining crops:\n\n{db_match['prevention']}"
         }
 
-    system_prompt = (
-        "You are an expert plant pathologist. Generate three clean bullet sections in simple farmer-friendly words.\n"
-        "You MUST use exactly these exact headers (do not add bolding, markdown, or numbers):\n"
-        "===DISEASE===\n"
-        "===TREATMENT===\n"
-        "===PREVENTION==="
-    )
+    if language == "ur":
+        system_prompt = (
+            "You are an expert plant pathologist. Generate three clean bullet sections in simple farmer-friendly Urdu.\n"
+            "You MUST use exactly these exact headers (do not translate these specific headers, write them in English, but the content must be in simple farmer-friendly Urdu):\n"
+            "===DISEASE===\n"
+            "===TREATMENT===\n"
+            "===PREVENTION==="
+        )
+    else:
+        system_prompt = (
+            "You are an expert plant pathologist. Generate three clean bullet sections in simple farmer-friendly words.\n"
+            "You MUST use exactly these exact headers (do not add bolding, markdown, or numbers):\n"
+            "===DISEASE===\n"
+            "===TREATMENT===\n"
+            "===PREVENTION==="
+        )
     user_prompt = f"Crop: {crop}, Disease: {disease}, Confidence: {confidence:.1f}%"
     
     try:
@@ -615,6 +631,12 @@ def generate_summaries_from_api(crop: str, disease: str, confidence: float) -> d
         if not db_match:
             db_match = OFFLINE_DISEASE_DB["default"]
             
+        if language == "ur":
+            return {
+                "diseaseSummary": f"**{crop}** پر **{disease}** کی شناخت ہوئی۔ {db_match['description']}",
+                "treatmentSummary": db_match['treatment'],
+                "preventionSummary": db_match['prevention']
+            }
         return {
             "diseaseSummary": f"**{disease}** was detected on your **{crop}**. {db_match['description']}",
             "treatmentSummary": db_match['treatment'],
@@ -638,7 +660,7 @@ def chat_proxy(payload: ChatPayload):
 @app.post("/chat/summaries")
 def chat_summaries(payload: SummaryPayload):
     try:
-        summaries = generate_summaries_from_api(payload.crop, payload.disease, payload.confidence)
+        summaries = generate_summaries_from_api(payload.crop, payload.disease, payload.confidence, payload.language)
         return summaries
     except Exception as e:
         return {"error": str(e)}

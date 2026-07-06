@@ -92,12 +92,13 @@ export const sendChatMessage = async (messages, customSystemPrompt) => {
  * Asynchronously generates the initial summary cards using secure FastAPI proxy
  * Supports graceful offline fallbacks.
  */
-export const generateDiseaseSummaries = async (crop, disease, confidence) => {
+export const generateDiseaseSummaries = async (crop, disease, confidence, language = 'en') => {
   try {
     const payload = {
       crop,
       disease,
-      confidence
+      confidence,
+      language
     };
 
     console.log('Requesting disease summaries from secure backend proxy:', `${API_BASE_URL}/chat/summaries`);

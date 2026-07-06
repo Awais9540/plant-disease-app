@@ -15,7 +15,8 @@ export const STORAGE_KEYS = {
   ONBOARDING_SEEN: 'onboarding_seen',
   HISTORY: 'leafdoc_scan_history',
   CALCULATOR_INPUTS: 'leafdoc_calculator_inputs',
-  PROFILE: 'leafdoc_profile'
+  PROFILE: 'leafdoc_profile',
+  LANGUAGE: 'leafdoc_language'
 };
 
 export const WEATHER_PLACEHOLDER = {

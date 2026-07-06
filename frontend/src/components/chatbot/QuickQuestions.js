@@ -1,34 +1,37 @@
 import React from 'react';
 import { ScrollView, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { colors } from '../../utils/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 const QUESTIONS = [
-  'How serious is this disease?',
-  'Best treatment?',
-  'Organic solution?',
-  'Which pesticide should I use?',
-  'How to prevent spread?',
-  'Fertilizer recommendation?',
-  'Is this harmful to yield?',
-  'Irrigation advice?',
+  { key: 'qHowSerious', default: 'How serious is this disease?' },
+  { key: 'qBestTreatment', default: 'Best treatment?' },
+  { key: 'qOrganicSolution', default: 'Organic solution?' },
+  { key: 'qPesticide', default: 'Which pesticide should I use?' },
+  { key: 'qPreventSpread', default: 'How to prevent spread?' },
+  { key: 'qFertilizer', default: 'Fertilizer recommendation?' },
+  { key: 'qHarmfulToYield', default: 'Is this harmful to yield?' },
+  { key: 'qIrrigation', default: 'Irrigation advice?' },
 ];
 
 export default function QuickQuestions({ onSelectQuestion, disabled }) {
+  const { t, textStyle, language } = useLanguage();
+
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, language === 'ur' && { flexDirection: 'row-reverse' }]}
     >
       {QUESTIONS.map((question, index) => (
         <TouchableOpacity
           key={index}
-          onPress={() => onSelectQuestion(question)}
+          onPress={() => onSelectQuestion(t(question.key))}
           style={[styles.chip, disabled && styles.disabledChip]}
           disabled={disabled}
         >
-          <Text style={[styles.text, disabled && styles.disabledText]}>{question}</Text>
+          <Text style={[styles.text, textStyle, disabled && styles.disabledText]}>{t(question.key)}</Text>
         </TouchableOpacity>
       ))}
     </ScrollView>

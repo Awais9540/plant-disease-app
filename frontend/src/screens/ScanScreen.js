@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../utils/theme';
 import { predictLeafDisease } from '../services/apiService';
 import { useScan } from '../context/ScanContext';
+import { useLanguage } from '../context/LanguageContext';
+import { getCropLabel } from '../utils/localization';
 
 const CROPS = [
   { name: 'Apple', image: require('../assets/crops/apple.png') },
@@ -62,13 +64,14 @@ export default function ScanScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const { setCurrentScan } = useScan();
+  const { t, textStyle, language } = useLanguage();
 
   const pickImageFromGallery = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert('Permission Needed', 'Please allow gallery permission to choose a leaf image.');
+        Alert.alert(t('permissionNeeded'), t('galleryPermission'));
         return;
       }
 
@@ -82,7 +85,7 @@ export default function ScanScreen({ navigation }) {
         setImageUri(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Gallery Error', error.message);
+      Alert.alert(t('galleryError'), error.message);
     }
   };
 
@@ -91,7 +94,7 @@ export default function ScanScreen({ navigation }) {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
 
       if (!permission.granted) {
-        Alert.alert('Permission Needed', 'Please allow camera permission to capture a leaf image.');
+        Alert.alert(t('permissionNeeded'), t('cameraPermission'));
         return;
       }
 
@@ -105,7 +108,7 @@ export default function ScanScreen({ navigation }) {
         setImageUri(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Camera Error', error.message);
+      Alert.alert(t('cameraError'), error.message);
     }
   };
 
@@ -115,7 +118,7 @@ export default function ScanScreen({ navigation }) {
 
   const analyzeImage = async () => {
     if (!imageUri) {
-      Alert.alert('No Image Selected', 'Please select or capture a leaf image first.');
+      Alert.alert(t('noImageAlert'), t('noImageMessage'));
       return;
     }
 
@@ -190,10 +193,10 @@ export default function ScanScreen({ navigation }) {
       navigation.navigate('Result', { result: scanResult });
     } catch (error) {
       Alert.alert(
-        'Prediction Failed',
+        t('predictionFailed'),
         error.response?.data?.detail
           ? String(error.response.data.detail)
-          : error.message || 'Check backend connection, then try again.'
+          : error.message || t('backendConnection')
       );
     } finally {
       setLoading(false);
@@ -202,10 +205,10 @@ export default function ScanScreen({ navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>Scan Leaf</Text>
-          <Text style={styles.subtitle}>Capture or upload a clear leaf image.</Text>
+      <View style={[styles.header, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.title, textStyle]}>{t('scanLeaf')}</Text>
+          <Text style={[styles.subtitle, textStyle]}>{t('scanSubtitle')}</Text>
         </View>
 
         <View style={styles.headerIcon}>
@@ -213,12 +216,15 @@ export default function ScanScreen({ navigation }) {
         </View>
       </View>
 
-      <Text style={styles.sectionLabel}>Crop</Text>
+      <Text style={[styles.sectionLabel, textStyle]}>{t('crop')}</Text>
 
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.cropList}
+        contentContainerStyle={[
+          styles.cropList,
+          language === 'ur' && { flexDirection: 'row-reverse', paddingLeft: 12, paddingRight: 0 }
+        ]}
       >
         {CROPS.map((crop) => {
           const active = selectedCrop === crop.name;
@@ -233,8 +239,8 @@ export default function ScanScreen({ navigation }) {
                 <Image source={crop.image} style={styles.cropImage} />
               </View>
 
-              <Text style={[styles.cropName, active && styles.cropNameActive]}>
-                {crop.name.replace('_', ' ')}
+              <Text style={[styles.cropName, textStyle, active && styles.cropNameActive]}>
+                {getCropLabel(crop.name, language)}
               </Text>
             </TouchableOpacity>
           );
@@ -242,12 +248,12 @@ export default function ScanScreen({ navigation }) {
       </ScrollView>
 
       <View style={styles.previewCard}>
-        <View style={styles.previewHeader}>
-          <Text style={styles.previewTitle}>Leaf Preview</Text>
+        <View style={[styles.previewHeader, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <Text style={[styles.previewTitle, textStyle]}>{t('leafPreview')}</Text>
 
           {imageUri && (
             <TouchableOpacity onPress={clearImage}>
-              <Text style={styles.clearText}>Remove</Text>
+              <Text style={styles.clearText}>{t('remove')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -260,63 +266,63 @@ export default function ScanScreen({ navigation }) {
               <View style={styles.placeholderIcon}>
                 <Ionicons name="image-outline" size={48} color={COLORS.primary || '#2E7D32'} />
               </View>
-              <Text style={styles.placeholderTitle}>No image selected</Text>
-              <Text style={styles.placeholderText}>
-                Choose a clear, single leaf photo for better prediction.
+              <Text style={[styles.placeholderTitle, textStyle]}>{t('noImageSelected')}</Text>
+              <Text style={[styles.placeholderText, textStyle]}>
+                {t('clearLeafPhoto')}
               </Text>
             </View>
           )}
         </View>
 
-        <View style={styles.tipRow}>
+        <View style={[styles.tipRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
           <Ionicons name="bulb-outline" size={18} color="#FF8F00" />
-          <Text style={styles.frameHint}>
-            Tip: Avoid blurry images and keep the infected region visible.
+          <Text style={[styles.frameHint, textStyle, language === 'ur' && { marginRight: 8, marginLeft: 0 }]}>
+            {t('scanTip')}
           </Text>
         </View>
       </View>
 
-      <View style={styles.actionRow}>
+      <View style={[styles.actionRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         <TouchableOpacity style={styles.optionButton} onPress={pickImageFromGallery}>
           <Ionicons name="images-outline" size={28} color={COLORS.primary || '#2E7D32'} />
-          <Text style={styles.optionTitle}>Gallery</Text>
-          <Text style={styles.optionSub}>Upload photo</Text>
+          <Text style={[styles.optionTitle, textStyle]}>{t('gallery')}</Text>
+          <Text style={[styles.optionSub, textStyle]}>{t('uploadPhoto')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.optionButton} onPress={captureImage}>
           <Ionicons name="camera-outline" size={28} color={COLORS.primary || '#2E7D32'} />
-          <Text style={styles.optionTitle}>Camera</Text>
-          <Text style={styles.optionSub}>Take photo</Text>
+          <Text style={[styles.optionTitle, textStyle]}>{t('camera')}</Text>
+          <Text style={[styles.optionSub, textStyle]}>{t('takePhoto')}</Text>
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity
-        style={[styles.analyzeButton, loading && styles.disabledButton]}
+        style={[styles.analyzeButton, loading && styles.disabledButton, language === 'ur' && { flexDirection: 'row-reverse' }]}
         onPress={analyzeImage}
         disabled={loading}
       >
         {loading ? (
           <>
             <ActivityIndicator color="#fff" />
-            <Text style={styles.analyzeText}>Analyzing leaf...</Text>
+            <Text style={styles.analyzeText}>{t('analyzingLeaf')}</Text>
           </>
         ) : (
           <>
             <Ionicons name="sparkles" size={22} color="#fff" />
-            <Text style={styles.analyzeText}>Analyze with AI + Grad-CAM</Text>
+            <Text style={styles.analyzeText}>{t('analyzeWithAi')}</Text>
           </>
         )}
       </TouchableOpacity>
 
-      <View style={styles.noteCard}>
-        <View style={styles.noteIcon}>
+      <View style={[styles.noteCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <View style={[styles.noteIcon, language === 'ur' ? { marginLeft: 0, marginRight: 0 } : { marginRight: 12 }]}>
           <Ionicons name="eye-outline" size={24} color={COLORS.primary || '#2E7D32'} />
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.noteTitle}>Explainable AI</Text>
-          <Text style={styles.noteText}>
-            LeafDoc shows a Grad-CAM heatmap to highlight the region that influenced the disease prediction.
+        <View style={[{ flex: 1 }, language === 'ur' ? { marginRight: 12 } : { marginLeft: 0 }]}>
+          <Text style={[styles.noteTitle, textStyle]}>{t('explainableAi')}</Text>
+          <Text style={[styles.noteText, textStyle]}>
+            {t('explainableAiNote')}
           </Text>
         </View>
       </View>

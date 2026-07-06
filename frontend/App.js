@@ -8,22 +8,25 @@ import { AppProvider } from './src/context/AppContext';
 import { ChatbotProvider } from './src/context/ChatbotContext';
 import { WeatherProvider } from './src/context/WeatherContext';
 import { AuthProvider } from './src/context/AuthContext';
+import { LanguageProvider } from './src/context/LanguageContext';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppProvider>
-        <ScanProvider>
-          <WeatherProvider>
-            <ChatbotProvider>
-              <NavigationContainer>
-                <StatusBar style="dark" />
-                <RootNavigator />
-              </NavigationContainer>
-            </ChatbotProvider>
-          </WeatherProvider>
-        </ScanProvider>
-      </AppProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <AppProvider>
+          <ScanProvider>
+            <WeatherProvider>
+              <ChatbotProvider>
+                <NavigationContainer>
+                  <StatusBar style="dark" />
+                  <RootNavigator />
+                </NavigationContainer>
+              </ChatbotProvider>
+            </WeatherProvider>
+          </ScanProvider>
+        </AppProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }

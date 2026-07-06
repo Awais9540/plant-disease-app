@@ -25,19 +25,6 @@ HEALTHY_CLASSES = {
 
 
 # ── GRAD-CAM ───────────────────────────────────────────────────────────────────
-# Hooks into backbone.stages[-1] (ConvNeXt-Tiny stage 3: 768ch, 7×7 spatial).
-#
-# Key fixes vs. your previous version:
-#   1. ConvNeXt-Tiny in timm outputs (B, H, W, C) from each stage — NHWC not NCHW.
-#      The old heuristic (C > H and C > W) fails at 7×7 because 768 > 7 is always
-#      true, so it ALWAYS went into the NCHW branch and averaged over the wrong dims.
-#      Fix: always treat stage output as (H, W, C) and pool over spatial dims (0,1).
-#
-#   2. Two-stage upscale: 7×7 → 14×14 → 224×224 (bilinear both steps).
-#      Single-step 7→224 causes blocky artifacts; the intermediate step smooths them.
-#
-#   3. Percentile clipping changed from p60 → p40. Your p60 was zeroing out too much
-#      of the map and collapsing the spread to a small dot.
 
 class GradCAM:
     def __init__(self, model, target_layer):
@@ -75,7 +62,7 @@ class GradCAM:
         # Global-average-pool gradients over spatial dims → channel weights (768,)
         weights = grads.mean(dim=(0, 1))   # (768,)
 
-        # Weighted sum of activation channels → (7, 7)
+        # Weighted sum of activation channels → (7, 7) actual formula of gradcam
         cam = (weights * acts).sum(dim=-1)  # (7, 7)
         cam = F.relu(cam)
 
@@ -102,7 +89,6 @@ class GradCAM:
 
 
 # ── OVERLAY ────────────────────────────────────────────────────────────────────
-# Changes vs. your original:
 #   • Percentile clip: p60 → p40  (keeps more of the activation spread)
 #   • sigmaX: 8 → 6               (slightly sharper edges)
 #   • alpha:  kept as passed in   (caller controls blend strength)
@@ -118,7 +104,7 @@ def overlay_heatmap_on_image(image_bgr, heatmap, alpha=0.55):
     hm = cv2.GaussianBlur(hm, (0, 0), sigmaX=6)
 
     # Percentile clip — p40 keeps the top 60% of activations visible
-    # (was p60, which kept only top 40% and collapsed the map to a dot)
+    
     p = np.percentile(hm, 40)
     hm[hm < p] = p
 
@@ -138,7 +124,7 @@ def overlay_heatmap_on_image(image_bgr, heatmap, alpha=0.55):
 
 
 # ── SEVERITY % ─────────────────────────────────────────────────────────────────
-# New feature: converts the heatmap into a clinical severity score.
+# Own feature: converts the heatmap into a clinical severity score.
 # Three components:
 #   1. Lesion area  (60%) — fraction of pixels above detection threshold
 #   2. Spatial spread (25%) — entropy: concentrated = early, distributed = advanced

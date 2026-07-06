@@ -17,6 +17,8 @@ import TypingIndicator from '../components/chatbot/TypingIndicator';
 import QuickQuestions from '../components/chatbot/QuickQuestions';
 import ChatInput from '../components/chatbot/ChatInput';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getCropLabel, getDiseaseLabel } from '../utils/localization';
 
 export default function ChatbotScreen({ route, navigation }) {
   const {
@@ -37,6 +39,7 @@ export default function ChatbotScreen({ route, navigation }) {
   } = useChatbot();
 
   const flatListRef = useRef(null);
+  const { t, textStyle, language } = useLanguage();
 
   // Initialize context when the screen mounts with crop/disease parameters
   useEffect(() => {
@@ -74,15 +77,15 @@ export default function ChatbotScreen({ route, navigation }) {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 25}
       >
         {/* Modern Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+        <View style={[styles.header, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, language === 'ur' ? { marginLeft: 16, marginRight: 0 } : { marginRight: 16 }]}>
+            <Ionicons name={language === 'ur' ? 'arrow-forward' : 'arrow-back'} size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>AI Farm Assistant</Text>
-            <View style={styles.onlineBadge}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.onlineText}>Online Pathologist</Text>
+            <Text style={[styles.headerTitle, textStyle]}>{t('chatTitle')}</Text>
+            <View style={[styles.onlineBadge, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+              <View style={[styles.onlineDot, language === 'ur' ? { marginLeft: 4, marginRight: 0 } : { marginRight: 4 }]} />
+              <Text style={styles.onlineText}>{t('onlinePathologist')}</Text>
             </View>
           </View>
           <TouchableOpacity onPress={clearChat} style={styles.resetButton} title="Clear Chat">
@@ -92,17 +95,17 @@ export default function ChatbotScreen({ route, navigation }) {
 
         {/* Diagnosis Context Banner */}
         {diseaseContext && (
-          <View style={styles.contextBanner}>
-            <View style={styles.contextInfo}>
+          <View style={[styles.contextBanner, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+            <View style={[styles.contextInfo, language === 'ur' && { flexDirection: 'row-reverse' }]}>
               <Ionicons name="leaf-outline" size={18} color={colors.primary} />
-              <Text style={styles.contextText}>
-                Active Scan: <Text style={styles.boldText}>{diseaseContext.cropName}</Text> (
-                <Text style={styles.diseaseHighlight}>{diseaseContext.diseaseName}</Text>)
+              <Text style={[styles.contextText, textStyle, language === 'ur' ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>
+                {t('activeScan')}: <Text style={styles.boldText}>{getCropLabel(diseaseContext.cropName, language)}</Text> (
+                <Text style={styles.diseaseHighlight}>{getDiseaseLabel(diseaseContext.diseaseName, language)}</Text>)
               </Text>
             </View>
             <View style={styles.confidencePill}>
               <Text style={styles.confidenceText}>
-                {diseaseContext.confidence.toFixed(0)}% Match
+                {diseaseContext.confidence.toFixed(0)}% {t('match')}
               </Text>
             </View>
           </View>
@@ -122,9 +125,9 @@ export default function ChatbotScreen({ route, navigation }) {
               {(isLoading || isPreGenerating) && (
                 <View style={styles.footerLoader}>
                   {isPreGenerating ? (
-                    <View style={styles.summaryGeneratingBox}>
+                    <View style={[styles.summaryGeneratingBox, language === 'ur' && { flexDirection: 'row-reverse' }]}>
                       <ActivityIndicator size="small" color={colors.primary} />
-                      <Text style={styles.generatingText}>AI is analyzing your crop details...</Text>
+                      <Text style={[styles.generatingText, textStyle, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{t('analyzingCrop')}</Text>
                     </View>
                   ) : (
                     <TypingIndicator />
@@ -133,17 +136,17 @@ export default function ChatbotScreen({ route, navigation }) {
               )}
 
               {error && (
-                <View style={styles.errorCard}>
+                <View style={[styles.errorCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
                   <Ionicons name="alert-circle" size={24} color={colors.error} />
                   <View style={styles.errorTextContainer}>
-                    <Text style={styles.errorTitle}>Oops! Network Error</Text>
-                    <Text style={styles.errorDescription}>{error}</Text>
+                    <Text style={[styles.errorTitle, textStyle]}>{t('networkErrorTitle')}</Text>
+                    <Text style={[styles.errorDescription, textStyle]}>{error}</Text>
                   </View>
                   <TouchableOpacity
-                    onPress={() => handleSend('Please retry the last question.')}
+                    onPress={() => handleSend(t('retryLastQuestion'))}
                     style={styles.retryButton}
                   >
-                    <Text style={styles.retryText}>Retry</Text>
+                    <Text style={styles.retryText}>{t('retry')}</Text>
                   </TouchableOpacity>
                 </View>
               )}

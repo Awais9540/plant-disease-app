@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function SignupScreen({ navigation }) {
   const [fullName, setFullName] = useState('');
@@ -10,10 +11,11 @@ export default function SignupScreen({ navigation }) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
+  const { t, textStyle } = useLanguage();
 
   const handleSignup = async () => {
     if (!fullName || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('error'), t('fillAllFields'));
       return;
     }
     setLoading(true);
@@ -21,9 +23,9 @@ export default function SignupScreen({ navigation }) {
     setLoading(false);
     
     if (error) {
-      Alert.alert('Signup Failed', error.message);
+      Alert.alert(t('signupFailed'), error.message);
     } else {
-      Alert.alert('Success', 'Check your email to verify your account!');
+      Alert.alert(t('success'), t('verifyEmail'));
       navigation.navigate('Login');
     }
   };
@@ -37,8 +39,8 @@ export default function SignupScreen({ navigation }) {
         </TouchableOpacity>
 
         <View style={styles.headerContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join the LeafDoc community</Text>
+          <Text style={[styles.title, textStyle]}>{t('createAccount')}</Text>
+          <Text style={[styles.subtitle, textStyle]}>{t('joinCommunity')}</Text>
         </View>
 
         <View style={styles.formContainer}>
@@ -46,7 +48,7 @@ export default function SignupScreen({ navigation }) {
             <Ionicons name="person-outline" size={20} color="#7f8c8d" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Full Name"
+              placeholder={t('fullName')}
               value={fullName}
               onChangeText={setFullName}
             />
@@ -56,7 +58,7 @@ export default function SignupScreen({ navigation }) {
             <Ionicons name="mail-outline" size={20} color="#7f8c8d" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Email"
+              placeholder={t('email')}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -68,7 +70,7 @@ export default function SignupScreen({ navigation }) {
             <Ionicons name="lock-closed-outline" size={20} color="#7f8c8d" style={styles.inputIcon} />
             <TextInput
               style={styles.input}
-              placeholder="Password"
+              placeholder={t('password')}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
@@ -82,15 +84,15 @@ export default function SignupScreen({ navigation }) {
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.signupButtonText}>Sign Up</Text>
+              <Text style={styles.signupButtonText}>{t('signUp')}</Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.footerContainer}>
-          <Text style={styles.footerText}>Already have an account? </Text>
+          <Text style={[styles.footerText, textStyle]}>{t('alreadyAccount')} </Text>
           <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.loginText}>Login</Text>
+            <Text style={styles.loginText}>{t('login')}</Text>
           </TouchableOpacity>
         </View>
 

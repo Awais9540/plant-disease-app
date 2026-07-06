@@ -17,6 +17,7 @@ import WeatherCard from '../components/weather/WeatherCard';
 import HourlyForecast from '../components/weather/HourlyForecast';
 import WeeklyForecast from '../components/weather/WeeklyForecast';
 import AdvisoryCard from '../components/weather/AdvisoryCard';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function WeatherScreen({ navigation }) {
   const {
@@ -34,6 +35,7 @@ export default function WeatherScreen({ navigation }) {
 
   const [searchText, setSearchText] = useState('');
   const pulseAnim = useRef(new Animated.Value(0.4)).current;
+  const { t, textStyle, language } = useLanguage();
 
   // Pulse animation for loading skeleton
   useEffect(() => {
@@ -90,14 +92,14 @@ export default function WeatherScreen({ navigation }) {
   return (
     <View style={styles.container}>
       {/* Premium Header */}
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.primary} />
+      <View style={[styles.headerRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, language === 'ur' ? { marginLeft: 14, marginRight: 0 } : { marginRight: 14 }]}>
+          <Ionicons name={language === 'ur' ? 'arrow-forward' : 'arrow-back'} size={22} color={colors.primary} />
         </TouchableOpacity>
         
         <View style={styles.headerTitles}>
-          <Text style={styles.headerTitle}>AgriWeather</Text>
-          <Text style={styles.headerSubtitle}>Agriculture Weather Intelligence</Text>
+          <Text style={[styles.headerTitle, textStyle]}>{t('weatherTitle')}</Text>
+          <Text style={[styles.headerSubtitle, textStyle]}>{t('weatherSubtitle')}</Text>
         </View>
       </View>
 
@@ -115,12 +117,12 @@ export default function WeatherScreen({ navigation }) {
         }
       >
         {/* Search Bar / GPS Widget Row */}
-        <View style={styles.searchContainer}>
-          <View style={styles.inputWrapper}>
-            <Ionicons name="search" size={20} color="#8BA18B" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <View style={[styles.inputWrapper, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+            <Ionicons name="search" size={20} color="#8BA18B" style={[styles.searchIcon, language === 'ur' ? { marginLeft: 10, marginRight: 0 } : { marginRight: 10 }]} />
             <TextInput
-              style={styles.searchInput}
-              placeholder="Search other farming areas..."
+              style={[styles.searchInput, textStyle, language === 'ur' && { textAlign: 'right' }]}
+              placeholder={t('searchFarmingAreas')}
               placeholderTextColor="#8BA18B"
               value={searchText}
               onChangeText={setSearchText}
@@ -147,9 +149,9 @@ export default function WeatherScreen({ navigation }) {
         {error && (
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle" size={32} color={colors.error} />
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={[styles.errorText, textStyle]}>{error}</Text>
             <TouchableOpacity style={styles.retryBtn} onPress={refreshWeather}>
-              <Text style={styles.retryText}>Retry Loading</Text>
+              <Text style={styles.retryText}>{t('retryLoading')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -183,12 +185,12 @@ export default function WeatherScreen({ navigation }) {
 
             {/* Smart Farming Banner */}
             <View style={styles.tipCard}>
-              <View style={styles.tipHeader}>
+              <View style={[styles.tipHeader, language === 'ur' && { flexDirection: 'row-reverse' }]}>
                 <Ionicons name="sparkles" size={20} color={colors.primary} />
-                <Text style={styles.tipTitle}>Decision Making Guideline</Text>
+                <Text style={[styles.tipTitle, textStyle, language === 'ur' ? { marginRight: 8, marginLeft: 0 } : { marginLeft: 8 }]}>{t('decisionGuideline')}</Text>
               </View>
-              <Text style={styles.tipText}>
-                Your AgriWeather Assistant updates hourly. Combine these spray advisories with LeafDoc leaf diagnostics before applying chemical controls in Sialkot.
+              <Text style={[styles.tipText, textStyle]}>
+                {t('decisionGuidelineText')}
               </Text>
             </View>
           </View>

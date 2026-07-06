@@ -8,6 +8,7 @@ import ToolsScreen from '../screens/ToolsScreen';
 import CommunityScreen from '../screens/CommunityScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
 
 const Tab = createBottomTabNavigator();
 
@@ -34,6 +35,8 @@ const ScanTabButton = ({ children, onPress }) => (
 );
 
 const BottomTabNavigator = () => {
+  const { t } = useLanguage();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -57,8 +60,8 @@ const BottomTabNavigator = () => {
         }
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Tools" component={ToolsScreen} />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarLabel: t('navHome') }} />
+      <Tab.Screen name="Tools" component={ToolsScreen} options={{ tabBarLabel: t('navTools') }} />
       <Tab.Screen
         name="Scan"
         component={ScanScreen}
@@ -67,8 +70,8 @@ const BottomTabNavigator = () => {
           tabBarLabel: () => null
         }}
       />
-      <Tab.Screen name="Community" component={CommunityScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="Community" component={CommunityScreen} options={{ tabBarLabel: t('navCommunity') }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarLabel: t('navProfile') }} />
     </Tab.Navigator>
   );
 };

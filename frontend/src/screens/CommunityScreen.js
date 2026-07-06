@@ -7,7 +7,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { formatDistanceToNow } from 'date-fns';
 
 import { supabase } from '../services/supabase';
-import { colors, COLORS } from '../utils/theme';
+import { colors } from '../utils/theme';
+import { useLanguage } from '../context/LanguageContext';
+import { getCropLabel } from '../utils/localization';
 
 const tags = ['All', 'Tomato', 'Wheat', 'Rice', 'Corn', 'General'];
 
@@ -15,6 +17,7 @@ export default function CommunityScreen({ navigation }) {
   const [activeTag, setActiveTag] = useState('All');
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { t, textStyle, language } = useLanguage();
 
   const fetchPosts = async () => {
     try {
@@ -38,7 +41,7 @@ export default function CommunityScreen({ navigation }) {
       setPosts(data || []);
     } catch (err) {
       console.log('Error fetching posts:', err);
-      Alert.alert('Error fetching posts', err.message || JSON.stringify(err));
+      Alert.alert(t('errorFetchingPosts'), err.message || JSON.stringify(err));
     } finally {
       setLoading(false);
     }
@@ -54,6 +57,16 @@ export default function CommunityScreen({ navigation }) {
     navigation.navigate('PostDetail', { post });
   };
 
+  const getTagLabel = (tag) => {
+    if (tag === 'All') return language === 'ur' ? 'سب' : 'All';
+    if (tag === 'Tomato') return language === 'ur' ? 'ٹماٹر' : 'Tomato';
+    if (tag === 'Wheat') return language === 'ur' ? 'گندم' : 'Wheat';
+    if (tag === 'Rice') return language === 'ur' ? 'چاول' : 'Rice';
+    if (tag === 'Corn') return language === 'ur' ? 'مکئی' : 'Corn';
+    if (tag === 'General') return language === 'ur' ? 'عام' : 'General';
+    return getCropLabel(tag, language);
+  };
+
   const renderPost = ({ item }) => {
     const author = item.author || {};
     const replyCount = item.comments ? item.comments.length : 0;
@@ -61,43 +74,43 @@ export default function CommunityScreen({ navigation }) {
     
     return (
       <TouchableOpacity style={styles.postCard} onPress={() => openPost(item)}>
-        <View style={styles.postHeader}>
+        <View style={[styles.postHeader, language === 'ur' && { flexDirection: 'row-reverse' }]}>
           {author.avatar_url ? (
-            <Image source={{ uri: author.avatar_url }} style={styles.avatar} />
+            <Image source={{ uri: author.avatar_url }} style={[styles.avatar, language === 'ur' ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 }]} />
           ) : (
-            <View style={styles.avatarPlaceholder}>
+            <View style={[styles.avatarPlaceholder, language === 'ur' ? { marginLeft: 12, marginRight: 0 } : { marginRight: 12 }]}>
               <Ionicons name="person" size={24} color="#fff" />
             </View>
           )}
 
           <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{author.full_name || 'Anonymous Farmer'}</Text>
-            <Text style={styles.location}>
-              {author.location || 'Unknown location'} • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+            <Text style={[styles.name, textStyle]}>{author.full_name || t('anonymousFarmer')}</Text>
+            <Text style={[styles.location, textStyle]}>
+              {author.location || t('unknownLocation')} • {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
             </Text>
           </View>
 
           <View style={styles.cropBadge}>
-            <Text style={styles.cropBadgeText}>{item.category}</Text>
+            <Text style={[styles.cropBadgeText, textStyle]}>{getTagLabel(item.category)}</Text>
           </View>
         </View>
 
-        {item.title && <Text style={styles.postTitle}>{item.title}</Text>}
-        <Text style={styles.question} numberOfLines={3}>{item.content}</Text>
+        {item.title && <Text style={[styles.postTitle, textStyle]}>{item.title}</Text>}
+        <Text style={[styles.question, textStyle]} numberOfLines={3}>{item.content}</Text>
         
         {item.image_url && (
            <Image source={{ uri: item.image_url }} style={styles.postImage} />
         )}
 
-        <View style={styles.postFooter}>
-          <View style={styles.footerItem}>
+        <View style={[styles.postFooter, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+          <View style={[styles.footerItem, language === 'ur' && { flexDirection: 'row-reverse' }, language === 'ur' ? { marginLeft: 24, marginRight: 0 } : { marginRight: 24 }]}>
             <Ionicons name="chatbubble-outline" size={18} color={colors.primary} />
-            <Text style={styles.footerText}>{replyCount} replies</Text>
+            <Text style={[styles.footerText, textStyle, language === 'ur' ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>{replyCount} {t('replies')}</Text>
           </View>
 
-          <View style={styles.footerItem}>
+          <View style={[styles.footerItem, language === 'ur' && { flexDirection: 'row-reverse' }]}>
             <Ionicons name="heart-outline" size={18} color={colors.primary} />
-            <Text style={styles.footerText}>{likeCount} likes</Text>
+            <Text style={[styles.footerText, textStyle, language === 'ur' ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>{likeCount} {t('likes')}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -107,32 +120,32 @@ export default function CommunityScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Community</Text>
-        <Text style={styles.subtitle}>Ask questions and learn from farmers</Text>
+        <Text style={[styles.title, textStyle]}>{t('communityTitle')}</Text>
+        <Text style={[styles.subtitle, textStyle]}>{t('communitySubtitle')}</Text>
       </View>
 
-      <View style={styles.heroCard}>
-        <View style={styles.heroIcon}>
+      <View style={[styles.heroCard, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+        <View style={[styles.heroIcon, language === 'ur' ? { marginLeft: 14, marginRight: 0 } : { marginRight: 14 }]}>
           <Ionicons name="people" size={34} color="#fff" />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={styles.heroTitle}>Farmer Help Forum</Text>
-          <Text style={styles.heroText}>
-            Share crop issues, discuss symptoms, and learn disease prevention tips.
+          <Text style={[styles.heroTitle, textStyle]}>{t('farmerHelpForum')}</Text>
+          <Text style={[styles.heroText, textStyle]}>
+            {t('farmerHelpForumDesc')}
           </Text>
         </View>
       </View>
 
-      <View style={styles.tagsRow}>
+      <View style={[styles.tagsRow, language === 'ur' && { flexDirection: 'row-reverse' }]}>
         {tags.map((tag) => (
           <TouchableOpacity
             key={tag}
-            style={[styles.tag, activeTag === tag && styles.activeTag]}
+            style={[styles.tag, activeTag === tag && styles.activeTag, language === 'ur' ? { marginLeft: 8, marginRight: 0 } : { marginRight: 8 }]}
             onPress={() => setActiveTag(tag)}
           >
-            <Text style={[styles.tagText, activeTag === tag && styles.activeTagText]}>
-              {tag}
+            <Text style={[styles.tagText, textStyle, activeTag === tag && styles.activeTagText]}>
+              {getTagLabel(tag)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -150,16 +163,16 @@ export default function CommunityScreen({ navigation }) {
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <Ionicons name="chatbubbles-outline" size={60} color={colors.primary} />
-              <Text style={styles.emptyTitle}>No posts yet</Text>
-              <Text style={styles.emptyText}>Be the first to ask a question!</Text>
+              <Text style={[styles.emptyTitle, textStyle]}>{t('noPostsYet')}</Text>
+              <Text style={[styles.emptyText, textStyle]}>{t('beFirstToAsk')}</Text>
             </View>
           }
         />
       )}
 
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('CreatePost')}>
+      <TouchableOpacity style={[styles.fab, language === 'ur' && { flexDirection: 'row-reverse' }]} onPress={() => navigation.navigate('CreatePost')}>
         <Ionicons name="add" size={22} color="#fff" />
-        <Text style={styles.fabText}>Ask</Text>
+        <Text style={[styles.fabText, textStyle, language === 'ur' ? { marginRight: 6, marginLeft: 0 } : { marginLeft: 6 }]}>{t('askBtn')}</Text>
       </TouchableOpacity>
     </View>
   );

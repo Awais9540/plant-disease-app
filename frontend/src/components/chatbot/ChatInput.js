@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../utils/theme';
+import { useLanguage } from '../../context/LanguageContext';
 
 export default function ChatInput({ onSendMessage, disabled }) {
   const [text, setText] = useState('');
+  const { t, textStyle, language } = useLanguage();
 
   const handleSend = () => {
     if (!text.trim() || disabled) return;
@@ -14,11 +16,11 @@ export default function ChatInput({ onSendMessage, disabled }) {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.inputContainer}>
+    <View style={[styles.container, language === 'ur' && { flexDirection: 'row-reverse' }]}>
+      <View style={[styles.inputContainer, language === 'ur' ? { marginLeft: 10, marginRight: 0 } : { marginRight: 10 }]}>
         <TextInput
-          style={styles.input}
-          placeholder="Ask AI Assistant about this disease..."
+          style={[styles.input, textStyle, language === 'ur' && { textAlign: 'right' }]}
+          placeholder={t('chatPlaceholder')}
           placeholderTextColor="#78909C"
           multiline
           maxHeight={100}
@@ -33,7 +35,7 @@ export default function ChatInput({ onSendMessage, disabled }) {
         style={[styles.sendButton, (!text.trim() || disabled) && styles.disabledSendButton]}
         disabled={!text.trim() || disabled}
       >
-        <Ionicons name="send" size={18} color="#FFFFFF" />
+        <Ionicons name={language === 'ur' ? 'send' : 'send'} size={18} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );

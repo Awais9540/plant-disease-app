@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { sendChatMessage, generateDiseaseSummaries } from '../services/chatbotService';
+import { useLanguage } from './LanguageContext';
 
 const ChatbotContext = createContext();
 
 export const ChatbotProvider = ({ children }) => {
+  const { language, t } = useLanguage();
   const [diseaseContext, setDiseaseContext] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -13,6 +15,12 @@ export const ChatbotProvider = ({ children }) => {
 
   // System prompt based on user requirements for expert farming guidance
   const getSystemPrompt = useCallback((crop, disease, confidence) => {
+    const urduInstructions = language === 'ur' ? `
+IMPORTANT: The user has selected Urdu as their app language. You MUST respond in simple, farmer-friendly, conversational Urdu (اردو). 
+Use simple words (e.g. spray instead of complicated terms, "بیماری", "احتیاط", "علاج"). 
+Do not use complex Arabic/Persian vocabulary. Present details in short bullet points.
+` : '';
+
     return `You are a highly experienced and friendly agricultural consultant and plant pathologist. 
 Your goal is to help a farmer manage crop health, with a specific focus on the following current diagnosis:
 - Crop: ${crop}
@@ -26,8 +34,9 @@ Always follow these guidelines in your responses:
 4. When suggesting pesticides or fertilizers, prioritize safe and approved options. Always warn the user to follow local safety protocols, check label instructions, and avoid recommending dangerous chemical dosages or unverified chemical mixes.
 5. If a disease is severe or highly contagious (e.g. Late Blight, Rust, Canker), explicitly suggest consulting a local agricultural extension officer, government agriculture department, or university lab.
 6. Support general conversation regarding farming, crop rotation, soil health, and weather impact.
-7. Keep answers concise but thorough enough to be fully useful.`;
-  }, []);
+7. Keep answers concise but thorough enough to be fully useful.
+${urduInstructions}`;
+  }, [language]);
 
   /**
    * Initializes the Chatbot Context with the current prediction context
@@ -45,10 +54,14 @@ Always follow these guidelines in your responses:
     setIsPreGenerating(true);
 
     // Initial message to make it feel alive
+    const welcomeText = language === 'ur'
+      ? `السلام علیکم! میں آپ کا AI زرعی مددگار ہوں۔ 🧑‍🌾\n\nمیں نے آپ کے **${cropName}** پر **${diseaseName}** کی شناخت کی ہے جس میں یقین کی شرح **${confidence.toFixed(1)}%** ہے۔\n\nمیں فی الحال آپ کے لیے علاج اور احتیاطی تدابیر کا خلاصہ تیار کر رہا ہوں۔ بس ایک سیکنڈ کا انتظار کریں!`
+      : `Hello! I am your AI Agriculture Assistant. 🧑‍🌾\n\nI see we detected **${diseaseName}** on your **${cropName}** with a confidence score of **${confidence.toFixed(1)}%**.\n\nI am currently preparing your personalized **disease, treatment, and prevention summaries**. Give me just a second!`;
+
     const initialWelcomeMessage = {
       id: 'welcome',
       role: 'assistant',
-      content: `Hello! I am your AI Agriculture Assistant. 🧑‍🌾\n\nI see we detected **${diseaseName}** on your **${cropName}** with a confidence score of **${confidence.toFixed(1)}%**.\n\nI am currently preparing your personalized **disease, treatment, and prevention summaries**. Give me just a second!`,
+      content: welcomeText,
       timestamp: new Date().toISOString(),
     };
     
@@ -56,7 +69,7 @@ Always follow these guidelines in your responses:
 
     try {
       // Pre-generate summaries using secure backend proxy (Groq API)
-      const summaries = await generateDiseaseSummaries(cropName, diseaseName, confidence);
+      const summaries = await generateDiseaseSummaries(cropName, diseaseName, confidence, language);
       setPreGeneratedSummaries(summaries);
       setIsPreGenerating(false);
 
@@ -64,7 +77,7 @@ Always follow these guidelines in your responses:
       const summaryMessage = {
         id: 'summary-cards',
         role: 'assistant',
-        content: `Here is a quick overview of what we should do:`,
+        content: t('summaryIntro'),
         isSummaryCard: true,
         summaries: summaries,
         timestamp: new Date().toISOString(),
@@ -79,12 +92,12 @@ Always follow these guidelines in your responses:
       const fallbackMessage = {
         id: 'summary-failed',
         role: 'assistant',
-        content: `I wasn't able to pre-generate the summaries due to a network connection issue, but don't worry! You can ask me any question below about how to treat or prevent this disease, and I will do my best to help you.`,
+        content: t('summaryFailed'),
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, fallbackMessage]);
     }
-  }, []);
+  }, [language, t]);
 
   /**
    * Sends a user message to the secure backend proxy (Groq API)
@@ -137,11 +150,11 @@ Always follow these guidelines in your responses:
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err) {
       console.warn('Error getting chat completion:', err);
-      setError('Connection error. I could not reach the server. Please check your internet connection.');
+      setError(t('networkErrorBody'));
     } finally {
       setIsLoading(false);
     }
-  }, [messages, isLoading, diseaseContext, getSystemPrompt]);
+  }, [messages, isLoading, diseaseContext, getSystemPrompt, t]);
 
   /**
    * Resets and clears the chat session to original state
